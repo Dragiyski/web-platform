@@ -1,0 +1,13 @@
+{
+    "name": "@dragiyski/web-platform-whatwg-dom",
+    "private": true,
+    "author": {
+        "name": "Plamen Dragiyski",
+        "email": "plamen@dragiyski.org"
+    },
+    "type": "module",
+    "devDependencies": {
+        "@babel/eslint-parser": "^7.19.1",
+        "eslint": "^8.26.0"
+    }
+}

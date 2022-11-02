@@ -1,0 +1,9 @@
+{
+    "name": "@dragiyski/web-platform-core",
+    "private": true,
+    "type": "module",
+    "devDependencies": {
+        "@babel/eslint-parser": "^7.19.1",
+        "eslint": "^8.26.0"
+    }
+}

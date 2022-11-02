@@ -1,0 +1,5 @@
+# VSCode project settings
+.vscode/
+
+# NodeJS packages
+node_modules/
