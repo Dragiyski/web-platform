@@ -1,7 +1,7 @@
 {
     "workspaces": [
-        "core",
-        "v8-extensions",
-        "whatwg-dom"
+        "./core",
+        "./v8-extensions",
+        "./whatwg-dom"
     ]
 }

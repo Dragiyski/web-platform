@@ -1,5 +1,5 @@
-import { nativeFunction, globalOf } from '@dragiyski/v8-extensions';
-import { createContext, runInContext } from 'node:vm';
+import { nativeFunction, globalOf, getSecurityToken, setSecurityToken, useDefaultSecurityToken } from '@dragiyski/v8-extensions';
+import { createContext, runInContext, compileFunction } from 'node:vm';
 import { copyPrimordials } from './primordials.js';
 
 export default class Platform {
@@ -11,6 +11,10 @@ export default class Platform {
     #context;
     #execute;
     #executionState;
+    #securityStack = [];
+    #unlockToken;
+    #lockToken;
+    #captureStackTrace;
 
     constructor(options) {
         options ??= {};
@@ -35,6 +39,8 @@ export default class Platform {
         this.#context = createContext(Object.create(null), contextOptions);
         const realmGlobal = runInContext(`globalThis`, this.#context);
         const realmObject = Object.create(null);
+        this.#unlockToken = getSecurityToken(realmGlobal);
+        this.#lockToken = Object.create(null);
         Object.defineProperties(this, {
             global: {
                 value: realmGlobal
@@ -50,6 +56,25 @@ export default class Platform {
         this.setImplementation(realmGlobal, Object.create(null));
         this.setImplementation(realmObject, Object.create(null));
         copyPrimordials(this.primordials, this.global);
+        this.#captureStackTrace = this.compileFunction(`platform.enterLock();
+try {
+    platform.call(platform.primordials['Error.captureStackTrace'], platform.primordials.Error, object, constructor);
+    return object;
+} finally {
+    platform.leaveLock();
+}`, ['platform', 'object', 'constructor']);
+    }
+
+    captureStackTrace(object, constructor) {
+        if (constructor == null) {
+            constructor = this.#captureStackTrace;
+        }
+        if (object == null) {
+            object = Object.create(null);
+        }
+        const captureStackTrace = this.#captureStackTrace;
+        captureStackTrace(this, object, constructor);
+        return object.stack;
     }
 
     static enter(platform) {
@@ -137,6 +162,33 @@ export default class Platform {
         return Interface;
     }
 
+    compileFunction(code, params = [], options = {}) {
+        return compileFunction(code, params, {
+            ...options,
+            parsingContext: this.#context
+        });
+    }
+
+    // Methods below provide secure way for locked code with access to environment to call functions,
+    // without relying to potentially overridden Function.prototype.* in the user context.
+
+    call(func, ...args) {
+        return Function.prototype.call.call(func, ...args);
+    }
+
+    apply(func, ...args) {
+        return Function.prototype.apply.call(func, ...args);
+    }
+
+    bind(func, ...args) {
+        return Function.prototype.bind.call(func, ...args);
+    }
+
+    // Call "native" function from user code, unlocking the platform first.
+    // While the platform is in locked state, its security token does not match the NodeJS main context security token.
+    // This prevent access to certain object properties, filter stack trace frames to those in the user context, etc.
+    // Unless explicitly exposed, the user code cannot access any part of the Node environment (without generating "no access" TypeError),
+    // nor it can use stack trace to detect it runs in NodeJS, not in a browser.
     #executeLocked(callee, ...args) {
         this.enterUnlock();
         try {
@@ -146,6 +198,9 @@ export default class Platform {
         }
     }
 
+    // Call "native" (implementation) function directly.
+    // This must only be used for unlocked state, where one "native" function can call directly another "native" function.
+    // The stack trace include everything.
     #executeDirect(callee, ...args) {
         return callee(this, ...args);
     }
@@ -161,6 +216,76 @@ export default class Platform {
         } finally {
             Platform.leave(this);
         }
+    }
+
+    enterLock() {
+        if (this.#securityStack.length > 0) {
+            const top = this.#securityStack[0];
+            if (top.lock) {
+                top.ref++;
+                return this;
+            }
+        }
+        this.#securityStack.unshift({
+            lock: true,
+            ref: 1
+        });
+        setSecurityToken(this.global, this.#lockToken);
+        this.#executionState = this.#executeLocked;
+    }
+
+    leaveLock() {
+        if (this.#securityStack.length <= 0) {
+            throw Platform.SecurityStateError('Attempting to leave non-existent state');
+        }
+        const top = this.#securityStack[0];
+        if (!top.lock) {
+            throw Platform.SecurityStateError('Attempting to leave locked state of unlocked platform');
+        }
+        if (--top.ref <= 0) {
+            this.#securityStack.shift();
+            if (this.#securityStack.length > 0 && this.#securityStack[0].lock) {
+                return this;
+            }
+            setSecurityToken(this.global, this.#unlockToken);
+            this.#executionState = this.#executeDirect;
+        }
+        return this;
+    }
+
+    enterUnlock() {
+        if (this.#securityStack.length > 0) {
+            const top = this.#securityStack[0];
+            if (!top.lock) {
+                top.ref++;
+                return this;
+            }
+        }
+        this.#securityStack.unshift({
+            lock: false,
+            ref: 1
+        });
+        setSecurityToken(this.global, this.#unlockToken);
+        this.#executionState = this.#executeDirect;
+    }
+
+    leaveUnlock() {
+        if (this.#securityStack.length <= 0) {
+            throw Platform.SecurityStateError('Attempting to leave non-existent state');
+        }
+        const top = this.#securityStack[0];
+        if (top.lock) {
+            throw Platform.SecurityStateError('Attempting to leave unlocked state of locked platform');
+        }
+        if (--top.ref <= 0) {
+            this.#securityStack.shift();
+            if (this.#securityStack.length > 0 && this.#securityStack[0].lock) {
+                setSecurityToken(this.global, this.#lockToken);
+                this.#executionState = this.#executeLocked;
+            }
+            // When the security stack is empty, the platform is left unlocked.
+        }
+        return this;
     }
 
     ownInterfaceOf(object) {
@@ -301,6 +426,10 @@ export default class Platform {
 
 Platform.RuntimeError = class RuntimeError extends Error {
     name = 'Platform.RuntimeError';
+};
+
+Platform.SecurityStateError = class SecurityStateError extends Platform.RuntimeError {
+    name = 'Platform.SecurityStateError';
 };
 
 {

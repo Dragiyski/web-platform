@@ -40,7 +40,7 @@ function copyProperty(primordials, primordialName, descriptor) {
     }
 }
 
-export function definePrimordial(primordials, global, name, value) {
+export function definePrimordial(primordials, name, value) {
     copyProperty(primordials, name, { value });
     copyAll(primordials, `${name}.`, value);
 }

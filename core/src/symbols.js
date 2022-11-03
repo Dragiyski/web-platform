@@ -1,3 +1,2 @@
-export const concept = Object.assign(Object.create(null), {
-    constructor: Symbol('constructor')
-});
+export const constructor = Symbol('constructor');
+export const implementation = Symbol('implementation');
