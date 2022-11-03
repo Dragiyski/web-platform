@@ -1,6 +1,7 @@
-import { nativeFunction, globalOf, getSecurityToken, setSecurityToken, useDefaultSecurityToken } from '@dragiyski/v8-extensions';
+import { nativeFunction, globalOf, getSecurityToken, setSecurityToken } from '@dragiyski/v8-extensions';
 import { createContext, runInContext, compileFunction } from 'node:vm';
 import { copyPrimordials } from './primordials.js';
+import { thrown } from './symbols.js';
 
 export default class Platform {
     static #globalMap = new WeakMap();
@@ -132,12 +133,6 @@ try {
         return null;
     }
 
-    static create(...args) {
-        const platform = new this(...args);
-        platform.initialize();
-        return platform;
-    }
-
     createNativeFunction(callee, options) {
         return nativeFunction((...args) => this.#execute(callee, ...args), Object.assign(Object.create(null), options));
     }
@@ -193,6 +188,8 @@ try {
         this.enterUnlock();
         try {
             return callee(this, ...args);
+        } catch (e) {
+            throw this.remapException(e);
         } finally {
             this.leaveUnlock();
         }
@@ -202,7 +199,46 @@ try {
     // This must only be used for unlocked state, where one "native" function can call directly another "native" function.
     // The stack trace include everything.
     #executeDirect(callee, ...args) {
-        return callee(this, ...args);
+        try {
+            return callee(this, ...args);
+        } catch (e) {
+            throw this.remapException(e);
+        }
+    }
+
+    remapException(e) {
+        if (Platform.fromObject(e) === this) {
+            // Case 1: Not an object;
+            // Case 2: An object that is created within the platform context;
+            // No remapping is done.
+            return e;
+        }
+        if (this.hasInterface(e)) {
+            // Case 3: This is an implementation of an error;
+            return this.interfaceOf(e);
+        }
+        const prototypeChain = [];
+        let o = Object.getPrototypeOf(e);
+        while (o != null) {
+            prototypeChain.push(o);
+            o = Object.getPrototypeOf(o);
+        }
+        if (prototypeChain.indexOf(AggregateError.prototype) >= 0) {
+            return this.remapAggregateError(e);
+        }
+        return this.remapGenericError(e);
+    }
+
+    remapAggregateError(errorImpl) {
+        let errorInterface = null;
+        if (!(errorImpl instanceof Error)) {
+            errorInterface = new this.primordials.Error();
+        }
+        const options = {};
+        if (errorImpl.cause != null) {
+            options.cause = this.remapException(errorImpl.cause);
+        }
+        errorInterface = new this.primordials.AggregateError(errorImpl.errors, errorImpl.message, options);
     }
 
     #directExecuteState(...args) {

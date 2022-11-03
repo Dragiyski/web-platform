@@ -90,6 +90,22 @@ export function caller(name) {
     };
 }
 
+export function constructorErrorPrefixInterceptor(className, callee) {
+    return function interceptor(platform, ...rest) {
+        try {
+            return callee(platform, ...rest);
+        } catch (e) {
+            if (e !== Object(e)) {
+                throw e;
+            }
+            if (platform.globalOf(e) === platform.global) {
+                throw e;
+            }
+            throw e;
+        }
+    };
+}
+
 export function defaultConstructor() {
     return function (platform, self, parameters, target) {
         const Implementation = platform.implementationOf(target);

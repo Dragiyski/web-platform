@@ -151,7 +151,7 @@
         ],
         "function-paren-newline": [
             "error",
-            "multiline"
+            "multiline-arguments"
         ],
         "generator-star-spacing": [
             "error",
