@@ -15,6 +15,9 @@ export default class Event {
         }),
         EventInitDict(dict) {
             const eventInitDict = Object.create(null);
+            if (dict == null) {
+                return eventInitDict;
+            }
             for (const key in ['bubbles', 'cancelable', 'composed']) {
                 eventInitDict[key] = !!dict[key];
             }
@@ -71,6 +74,7 @@ export default class Event {
             if (platform != null) {
                 const eventInterface = Object.create(platform.interfaceOf(Interface.prototype));
                 platform.setImplementation(eventInterface, event);
+                this.legacyUnforgeable(Interface, eventInterface);
                 if (platform.realm.performance?.[concept]?.timeOrigin != null) {
                     // In case performance API is simulated, timeOrigin can be shifted to "start of page" in a simulated browser.
                     timeOrigin = platform.realm.performance[concept].timeOrigin;
@@ -86,6 +90,23 @@ export default class Event {
                 platform.realm[eventConstructingSteps](event, dictionary);
             }
             return event;
+        },
+        legacyUnforgeable(Interface, object) {
+            const platform = Platform.current();
+            const { validateThisImplementationInterceptor, functionInterceptor, getter } = interceptors.core;
+            const name = 'isTrusted';
+            Object.defineProperty(object, name, {
+                enumerable: true,
+                get: platform.createNativeFunction(
+                    validateThisImplementationInterceptor(
+                        Interface,
+                        functionInterceptor(
+                            getter(name)
+                        )
+                    ),
+                    { name, constructor: false }
+                )
+            });
         }
     });
 
@@ -95,7 +116,8 @@ export default class Event {
         path: [],
         type: '',
         currentTarget: null,
-        eventPhase: this[concept].EventPhase.None,
+        // eslint-disable-next-line no-use-before-define
+        eventPhase: Event[concept].EventPhase.NONE,
         stopPropagationFlag: false,
         stopImmediatePropagationFlag: false,
         canceledFlag: false,
@@ -273,15 +295,26 @@ export function install(platform) {
     const {
         returnValueInterfaceInterceptor,
         validateThisImplementationInterceptor,
+        constructorErrorMessageInterceptor,
+        minimumArgumentsInterceptor,
         functionInterceptor,
         getter,
         setter,
         caller
     } = interceptors.core;
+    const { validateNewTargetInterceptor } = interceptors;
     const Interface = platform.realm.Event = platform.createInterface(
         Event,
         returnValueInterfaceInterceptor(
-            Event[constructor]
+            constructorErrorMessageInterceptor(
+                'Event',
+                validateNewTargetInterceptor(
+                    minimumArgumentsInterceptor(
+                        1,
+                        (platform, thisArg, args) => Event[constructor](...args)
+                    )
+                )
+            )
         ),
         {
             name: 'Event',
@@ -294,10 +327,10 @@ export function install(platform) {
             enumerable: true,
             get: platform.createNativeFunction(
                 validateThisImplementationInterceptor(
+                    Event,
                     functionInterceptor(
                         getter(name)
-                    ),
-                    Platform.realm.Event
+                    )
                 ),
                 { name, constructor: false }
             )
@@ -310,10 +343,10 @@ export function install(platform) {
             get: platform.createNativeFunction(
                 returnValueInterfaceInterceptor(
                     validateThisImplementationInterceptor(
+                        Event,
                         functionInterceptor(
                             getter(name)
-                        ),
-                        Platform.realm.Event
+                        )
                     )
                 ),
                 { name, constructor: false }
@@ -327,19 +360,19 @@ export function install(platform) {
             enumerable: true,
             get: platform.createNativeFunction(
                 validateThisImplementationInterceptor(
+                    Event,
                     functionInterceptor(
                         getter(name)
-                    ),
-                    Platform.realm.Event
+                    )
                 ),
                 { name, constructor: false }
             ),
             set: platform.createNativeFunction(
                 validateThisImplementationInterceptor(
+                    Event,
                     functionInterceptor(
                         setter(name)
-                    ),
-                    Platform.realm.Event
+                    )
                 ),
                 { name, constructor: false }
             )
@@ -353,10 +386,10 @@ export function install(platform) {
             writable: true,
             value: platform.createNativeFunction(
                 validateThisImplementationInterceptor(
+                    Event,
                     functionInterceptor(
                         caller(name)
-                    ),
-                    Platform.realm.Event
+                    )
                 ),
                 { name, constructor: false }
             )
@@ -370,10 +403,10 @@ export function install(platform) {
         value: platform.createNativeFunction(
             Event[concept].composedPathReturnValueInterceptor(
                 validateThisImplementationInterceptor(
+                    Event,
                     functionInterceptor(
                         caller('composedPath')
-                    ),
-                    Platform.realm.Event
+                    )
                 )
             ),
             { name: 'composedPath', constructor: false }

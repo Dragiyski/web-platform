@@ -1,7 +1,6 @@
 import { nativeFunction, globalOf, getSecurityToken, setSecurityToken } from '@dragiyski/v8-extensions';
-import { createContext, runInContext, compileFunction } from 'node:vm';
+import { createContext, runInContext, compileFunction, Script } from 'node:vm';
 import { copyPrimordials } from './primordials.js';
-import { thrown } from './symbols.js';
 
 export default class Platform {
     static #globalMap = new WeakMap();
@@ -16,6 +15,8 @@ export default class Platform {
     #unlockToken;
     #lockToken;
     #captureStackTrace;
+    #nativeError;
+    #thrown = new WeakSet();
 
     constructor(options) {
         options ??= {};
@@ -57,6 +58,12 @@ export default class Platform {
         this.setImplementation(realmGlobal, Object.create(null));
         this.setImplementation(realmObject, Object.create(null));
         copyPrimordials(this.primordials, this.global);
+        this.#nativeError = Object.getOwnPropertyNames(realmGlobal)
+            .filter(name => (
+                typeof realmGlobal[name] === 'function' &&
+                this.call(this.primordials['Function.prototype.[Symbol.hasInstance]'], this.primordials.Error, realmGlobal[name].prototype)
+            ));
+        this.#nativeError.push('Error');
         this.#captureStackTrace = this.compileFunction(`platform.enterLock();
 try {
     platform.call(platform.primordials['Error.captureStackTrace'], platform.primordials.Error, object, constructor);
@@ -88,6 +95,7 @@ try {
                 ++top.ref;
                 return this;
             }
+            top.#execute = top.#enterExecuteState;
         }
         this.#stack.unshift({
             platform,
@@ -104,6 +112,9 @@ try {
                 if (--top.ref <= 0) {
                     platform.#execute = platform.#enterExecuteState;
                     Platform.#stack.shift();
+                    if (Platform.#stack.length > 0) {
+                        Platform.#stack[0].#execute = Platform.#stack[0].#directExecuteState;
+                    }
                 }
                 return this;
             }
@@ -134,7 +145,7 @@ try {
     }
 
     createNativeFunction(callee, options) {
-        return nativeFunction((...args) => this.#execute(callee, ...args), Object.assign(Object.create(null), options));
+        return nativeFunction((...args) => this.#execute(callee, ...args), Object.assign(Object.create(null), { ...options, context: this.global }));
     }
 
     createObject(prototype) {
@@ -184,6 +195,11 @@ try {
     // This prevent access to certain object properties, filter stack trace frames to those in the user context, etc.
     // Unless explicitly exposed, the user code cannot access any part of the Node environment (without generating "no access" TypeError),
     // nor it can use stack trace to detect it runs in NodeJS, not in a browser.
+
+    // Note: Only here exceptions need to be remapped to guarantee user code has no access to the current platform.
+    // Note: Calling user code does not require remapping. If unhandled exception is native, it can safely display the entire stack.
+    // Warning: If exception is not native, and does not have implementation, it must be read with care. User code can install getters,
+    // or modify it in a way that executes user code without locking the environment.
     #executeLocked(callee, ...args) {
         this.enterUnlock();
         try {
@@ -199,11 +215,7 @@ try {
     // This must only be used for unlocked state, where one "native" function can call directly another "native" function.
     // The stack trace include everything.
     #executeDirect(callee, ...args) {
-        try {
-            return callee(this, ...args);
-        } catch (e) {
-            throw this.remapException(e);
-        }
+        return callee(this, ...args);
     }
 
     remapException(e) {
@@ -217,28 +229,77 @@ try {
             // Case 3: This is an implementation of an error;
             return this.interfaceOf(e);
         }
-        const prototypeChain = [];
-        let o = Object.getPrototypeOf(e);
-        while (o != null) {
-            prototypeChain.push(o);
-            o = Object.getPrototypeOf(o);
+        let prototype = Object.getPrototypeOf(e);
+        const errors = this.#nativeError.map(name => globalThis[name].prototype);
+        let name = 'Error';
+        while (prototype != null) {
+            const index = errors.indexOf(prototype);
+            if (index >= 0) {
+                name = this.#nativeError[index];
+                break;
+            }
+            prototype = Object.getPrototypeOf(prototype);
         }
-        if (prototypeChain.indexOf(AggregateError.prototype) >= 0) {
+        if (name === 'AggregateError') {
             return this.remapAggregateError(e);
         }
-        return this.remapGenericError(e);
+        return this.remapGenericError(e, name);
     }
 
+    // AggregateError may contain multiple errors.
+    // It is expected to only be thrown automatically from Promise.any() when all promises are rejected.
+    // Unlike other errors, this requires as first parameters array/iterable of errors, the message goes into the second argument.
     remapAggregateError(errorImpl) {
-        let errorInterface = null;
-        if (!(errorImpl instanceof Error)) {
-            errorInterface = new this.primordials.Error();
+        const args = [];
+        const errors = errorImpl.errors;
+        if (errors === Object(errors) && typeof errors[Symbol.iterator] === 'function') {
+            args[0] = [...errors].map(error => this.remapException(error));
+        } else {
+            args[0] = [];
         }
-        const options = {};
-        if (errorImpl.cause != null) {
-            options.cause = this.remapException(errorImpl.cause);
+        const message = errorImpl.message;
+        if (typeof message === 'string' && message.length > 0) {
+            args[1] = message;
         }
-        errorInterface = new this.primordials.AggregateError(errorImpl.errors, errorImpl.message, options);
+        const cause = errorImpl.cause;
+        if (cause != null) {
+            args[2] = {
+                cause: this.remapException(cause)
+            };
+        }
+        const errorInterface = new this.primordials.AggregateError(...args);
+        this.setImplementation(errorInterface, errorImpl);
+        this.captureStackTrace(errorInterface);
+        return errorInterface;
+    }
+
+    remapGenericError(errorImpl, name) {
+        const args = [];
+        if (errorImpl instanceof Error) {
+            const message = errorImpl.message;
+            if (typeof message === 'string' && message.length > 0) {
+                args[0] = message;
+            }
+            const cause = errorImpl.cause;
+            if (cause != null) {
+                args[1] = {
+                    cause: this.remapException(cause)
+                };
+            }
+        }
+        const errorInterface = new this.primordials[name](...args);
+        this.setImplementation(errorInterface, errorImpl);
+        this.captureStackTrace(errorInterface);
+        return errorInterface;
+    }
+
+    throw(error) {
+        this.#thrown.add(error);
+        throw error;
+    }
+
+    isThrown(error) {
+        return this.#thrown.has(error);
     }
 
     #directExecuteState(...args) {
@@ -448,15 +509,26 @@ try {
         return this;
     }
 
-    /**
-     * @todo For platforms supporting locking, this must lock before the function call and unlock after that.
-     * @param {Function} target
-     * @param {*} thisArg
-     * @param {Array} args
-     * @returns
-     */
     callUserFunction(target, thisArg, args) {
-        return Reflect.apply(target, thisArg, args);
+        this.enterLock();
+        try {
+            return Reflect.apply(target, thisArg, args);
+        } finally {
+            this.leaveLock();
+        }
+    }
+
+    callUserScript(script, options) {
+        if (!(script instanceof Script)) {
+            throw new TypeError('Expected arguments[0] to be instance of vm.Script (module node:vm)');
+        }
+        options = { ...options };
+        this.enterLock();
+        try {
+            return script.runInContext(this.#context, options);
+        } finally {
+            this.leaveLock();
+        }
     }
 }
 
@@ -528,8 +600,6 @@ Platform.SecurityStateError = class SecurityStateError extends Platform.RuntimeE
         value: Object.create(assigner)
     });
 }
-
-Platform.enter(new Platform());
 
 /**
  * @typedef {Function} PlatformCallback

@@ -1,8 +1,14 @@
 export function copyPrimordials(primordials, global) {
-    copyAll(primordials, '', global);
+    const symbols = Object.create(null);
+    Object.getOwnPropertyNames(global.Symbol)
+        .filter(name => typeof Symbol[name] === 'symbol')
+        .forEach(name => {
+            symbols[name] = global.Symbol[name];
+        });
+    copyAll(symbols, primordials, '', global);
 }
 
-function copyAll(primordials, prefix, source, ...stack) {
+function copyAll(symbols, primordials, prefix, source, ...stack) {
     if (stack.indexOf(source) >= 0) {
         return;
     }
@@ -10,7 +16,14 @@ function copyAll(primordials, prefix, source, ...stack) {
         const descriptor = Object.getOwnPropertyDescriptor(source, name);
         copyProperty(primordials, `${prefix}${name}`, descriptor);
         if (descriptor.value === Object(descriptor.value)) {
-            copyAll(primordials, `${prefix}${name}.`, descriptor.value, ...stack, source);
+            copyAll(symbols, primordials, `${prefix}${name}.`, descriptor.value, ...stack, source);
+        }
+    }
+    for (const name in symbols) {
+        const symbol = symbols[name];
+        const descriptor = Object.getOwnPropertyDescriptor(source, symbol);
+        if (descriptor != null) {
+            copyProperty(primordials, `${prefix}[Symbol.${name}]`, descriptor);
         }
     }
 }

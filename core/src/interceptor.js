@@ -46,7 +46,7 @@ export function requireThisOwnImplementationInterceptor(callee) {
     };
 };
 
-export function validateThisImplementationInterceptor(callee, Class) {
+export function validateThisImplementationInterceptor(Class, callee) {
     return function interceptor(platform, self, ...more) {
         self = platform.implementationOf(self);
         if (!(self instanceof Class)) {
@@ -90,22 +90,6 @@ export function caller(name) {
     };
 }
 
-export function constructorErrorPrefixInterceptor(className, callee) {
-    return function interceptor(platform, ...rest) {
-        try {
-            return callee(platform, ...rest);
-        } catch (e) {
-            if (e !== Object(e)) {
-                throw e;
-            }
-            if (platform.globalOf(e) === platform.global) {
-                throw e;
-            }
-            throw e;
-        }
-    };
-}
-
 export function defaultConstructor() {
     return function (platform, self, parameters, target) {
         const Implementation = platform.implementationOf(target);
@@ -116,5 +100,31 @@ export function defaultConstructor() {
         const objectInterface = Object.create(platform.interfaceOf(Implementation.prototype));
         platform.setImplementation(objectInterface, objectImpl);
         return objectImpl;
+    };
+}
+
+export function minimumArgumentsInterceptor(length, callee) {
+    return function interceptor(platform, thisArg, args, ...rest) {
+        if (args.length < length) {
+            platform.throw(new TypeError(`${length} argument required, but only ${args.length} present.`));
+        }
+        return callee(platform, thisArg, args, ...rest);
+    };
+}
+
+export function constructorErrorMessageInterceptor(className, callee) {
+    return function interceptor(platform, ...rest) {
+        try {
+            return callee(platform, ...rest);
+        } catch (e) {
+            if (platform.isThrown(e)) {
+                const message = [`Failed to construct '${className}'`];
+                if (e.message) {
+                    message.push(e.message);
+                }
+                e.message = message.join(': ');
+            }
+            throw e;
+        }
     };
 }

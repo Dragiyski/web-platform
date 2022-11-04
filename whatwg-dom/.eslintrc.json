@@ -422,7 +422,10 @@
         ],
         "no-use-before-define": [
             "error",
-            "nofunc"
+            {
+                "allowNamedExports": true,
+                "functions": false
+            }
         ],
         "no-useless-backreference": "error",
         "no-useless-call": "error",
