@@ -171,8 +171,24 @@ try {
         return null;
     }
 
+    // Note: VM's contextified sandbox is a special native object, that:
+    // 1. Everything assigned to the global will actually be assigned to the contextified sandbox, but will appear in global as own property.
+    // (i.e. Global is a GlobalProxy with target contextified sandbox)
+    // 2. When a context function in this context is invoked from the other context (including natively),
+    // and the "this" is the global (including invocation without "this"), the "this" becomes contextified sandbox.
+    // We have to correct for that.
+    #contextSelf(self) {
+        if (self === this.#context) {
+            return this.global;
+        }
+        return self;
+    }
+
     createNativeFunction(callee, options) {
-        return nativeFunction((...args) => this.#execute(callee, ...args), Object.assign(Object.create(null), { ...options, context: this.global }));
+        return nativeFunction(
+            (self, args, newTarget) => this.#execute(callee, this.#contextSelf(self), args, newTarget),
+            Object.assign(Object.create(null), { ...options, context: this.global })
+        );
     }
 
     createObject(prototype) {
@@ -360,11 +376,11 @@ try {
 
     leaveLock() {
         if (this.#securityStack.length <= 0) {
-            throw Platform.SecurityStateError('Attempting to leave non-existent state');
+            throw new Platform.SecurityStateError('Attempting to leave non-existent state');
         }
         const top = this.#securityStack[0];
         if (!top.lock) {
-            throw Platform.SecurityStateError('Attempting to leave locked state of unlocked platform');
+            throw new Platform.SecurityStateError('Attempting to leave locked state of unlocked platform');
         }
         if (--top.ref <= 0) {
             this.#securityStack.shift();

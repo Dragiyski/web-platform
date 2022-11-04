@@ -301,6 +301,7 @@ export default class Event {
 export function install(platform) {
     const {
         returnValueInterfaceInterceptor,
+        requireThisImplementationInterceptor,
         validateThisImplementationInterceptor,
         constructorErrorMessageInterceptor,
         minimumArgumentsInterceptor,
@@ -423,8 +424,21 @@ export function install(platform) {
     // [Exposed=*]
     Object.defineProperty(platform.global, 'Event', {
         configurable: true,
-        enumerable: false,
         writable: true,
         value: Interface
+    });
+
+    Object.defineProperty(platform.global, 'event', {
+        configurable: true,
+        get: platform.createNativeFunction(
+            returnValueInterfaceInterceptor(
+                requireThisImplementationInterceptor(
+                    functionInterceptor(
+                        getter('currentEvent')
+                    )
+                )
+            ),
+            { name: 'event' }
+        )
     });
 }
