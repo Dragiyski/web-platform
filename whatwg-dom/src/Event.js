@@ -439,6 +439,18 @@ export function install(platform) {
                 )
             ),
             { name: 'event' }
+        ),
+        set: platform.createNativeFunction(
+            functionInterceptor(
+                value => {
+                    Object.defineProperty(platform.global, 'event', {
+                        configurable: true,
+                        enumerable: true,
+                        writable: true,
+                        value
+                    });
+                }
+            )
         )
     });
 }
