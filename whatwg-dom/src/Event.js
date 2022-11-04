@@ -7,22 +7,17 @@ const { concept, constructor } = symbols;
 
 export default class Event {
     static [concept] = Object.assign(Object.create(null), {
+        toBooleanCopy(name) {
+            return function (event, value) {
+                event[concept][name] = !!value;
+            };
+        },
         EventPhase: Object.assign(Object.create(null), {
             NONE: 0,
             CAPTURING_PHASE: 1,
             AT_TARGET: 2,
             BUBBLING_PHASE: 3
         }),
-        EventInitDict(dict) {
-            const eventInitDict = Object.create(null);
-            if (dict == null) {
-                return eventInitDict;
-            }
-            for (const key in ['bubbles', 'cancelable', 'composed']) {
-                eventInitDict[key] = !!dict[key];
-            }
-            return eventInitDict;
-        },
         composedPathReturnValueInterceptor(callee) {
             return function interceptor(platform, ...rest) {
                 const value = callee(platform, ...rest);
@@ -81,13 +76,17 @@ export default class Event {
                 }
             }
             event[concept].timeStamp = time - timeOrigin;
-            for (const key in Object.keys(dictionary)) {
-                if (key in event[concept]) {
-                    event[concept][key] = dictionary[key];
+            const EventInitDict = Interface[concept].EventInitDict;
+            for (const key in EventInitDict) {
+                if (key in dictionary) {
+                    EventInitDict[key](event, dictionary[key]);
                 }
             }
             if (typeof platform?.realm?.[eventConstructingSteps] === 'function') {
                 platform.realm[eventConstructingSteps](event, dictionary);
+            }
+            if (typeof this[eventConstructingSteps] === 'function') {
+                this[eventConstructingSteps](event, dictionary);
             }
             return event;
         },
@@ -109,6 +108,14 @@ export default class Event {
             });
         }
     });
+
+    static {
+        this[concept].EventInitDict = Object.assign(Object.create(null), {
+            bubbles: this[concept].toBooleanCopy('bubbles'),
+            cancelable: this[concept].toBooleanCopy('cancelable'),
+            composed: (event, value) => { event[concept].composedFlag = !!value; }
+        });
+    }
 
     [concept] = Object.assign(Object.create(null), {
         target: null,
@@ -284,7 +291,7 @@ export default class Event {
             this,
             platform,
             performance.timeOrigin + performance.now(),
-            this[concept].EventInitDict(eventInitDict)
+            eventInitDict
         );
         event[concept].type = '' + type;
         return event;

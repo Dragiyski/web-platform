@@ -124,6 +124,22 @@ void js_global_of(const v8::FunctionCallbackInfo<v8::Value> &info) {
     }
 }
 
+void js_function_set_name(const v8::FunctionCallbackInfo<v8::Value> &info) {
+    auto isolate = info.GetIsolate();
+    v8::HandleScope scope(isolate);
+    auto context = isolate->GetCurrentContext();
+    if (info.Length() < 2) {
+        JS_THROW_INVALID_ARG_COUNT(NOTHING, context, info, 2);
+    }
+    if (!info[0]->IsFunction()) {
+        JS_THROW_INVALID_ARG_TYPE(NOTHING, context, info, 0, "a function");
+    }
+    if (!info[1]->IsString()) {
+        JS_THROW_INVALID_ARG_TYPE(NOTHING, context, info, 1, "a string");
+    }
+    info[0].As<v8::Function>()->SetName(info[1].As<v8::String>());
+}
+
 NODE_MODULE_INIT() {
     {
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "getSecurityToken"));
@@ -147,7 +163,12 @@ NODE_MODULE_INIT() {
     }
     {
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "globalOf"));
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_global_of, exports, 5, v8::ConstructorBehavior::kThrow));
+        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_global_of, exports, 1, v8::ConstructorBehavior::kThrow));
+        JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
+    }
+    {
+        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "setFunctionName"));
+        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_function_set_name, exports, 2, v8::ConstructorBehavior::kThrow));
         JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
     }
 }

@@ -1,4 +1,4 @@
-import { nativeFunction, globalOf, getSecurityToken, setSecurityToken } from '@dragiyski/v8-extensions';
+import { nativeFunction, globalOf, getSecurityToken, setSecurityToken, setFunctionName } from '@dragiyski/v8-extensions';
 import { createContext, runInContext, compileFunction, Script } from 'node:vm';
 import { copyPrimordials } from './primordials.js';
 
@@ -17,6 +17,7 @@ export default class Platform {
     #captureStackTrace;
     #nativeError;
     #thrown = new WeakSet();
+    #expose;
 
     constructor(options) {
         options ??= {};
@@ -38,8 +39,30 @@ export default class Platform {
                 contextOptions.origin = '' + value;
             }
         }
-        this.#context = createContext(Object.create(null), contextOptions);
+        let globalName = options.name;
+        if (typeof exposeType !== 'string' || globalName.length <= 0) {
+            globalName = 'Window';
+        }
+        let exposeTypes = options.expose;
+        if (exposeTypes === Object(exposeTypes) && typeof exposeTypes[Symbol.iterator] === 'function') {
+            exposeTypes = [...exposeTypes];
+        } else {
+            exposeTypes = [globalName];
+        }
+        this.#expose = Object.create(null);
+        for (const exposeName of exposeTypes) {
+            this.#expose[exposeName] = true;
+        }
+        // Ensure the global of the context is named.
+        const NamedGlobal = nativeFunction(() => { }, { name: globalName });
+        Object.setPrototypeOf(NamedGlobal.prototype, null);
+        // The global will still have constructor, but it will be from its context's Function prototype.
+        delete NamedGlobal.prototype.constructor;
+        const contextGlobal = new NamedGlobal();
+        this.#context = createContext(contextGlobal, contextOptions);
         const realmGlobal = runInContext(`globalThis`, this.#context);
+        // Since the constructor will be different from this context Function.prototype, it won't have a name, so rename it.
+        setFunctionName(realmGlobal.constructor, globalName);
         const realmObject = Object.create(null);
         this.#unlockToken = getSecurityToken(realmGlobal);
         this.#lockToken = Object.create(null);
@@ -71,6 +94,10 @@ try {
 } finally {
     platform.leaveLock();
 }`, ['platform', 'object', 'constructor']);
+    }
+
+    is(name) {
+        return name in this.#expose;
     }
 
     captureStackTrace(object, constructor) {
@@ -510,24 +537,28 @@ try {
     }
 
     callUserFunction(target, thisArg, args) {
+        Platform.enter(this);
         this.enterLock();
         try {
             return Reflect.apply(target, thisArg, args);
         } finally {
             this.leaveLock();
+            Platform.leave(this);
         }
     }
 
-    callUserScript(script, options) {
+    runUserScript(script, options) {
         if (!(script instanceof Script)) {
             throw new TypeError('Expected arguments[0] to be instance of vm.Script (module node:vm)');
         }
         options = { ...options };
+        Platform.enter(this);
         this.enterLock();
         try {
             return script.runInContext(this.#context, options);
         } finally {
             this.leaveLock();
+            Platform.leave(this);
         }
     }
 }

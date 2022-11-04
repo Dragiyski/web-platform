@@ -5,6 +5,11 @@ export const setSecurityToken = binding.setSecurityToken;
 export const useDefaultSecurityToken = binding.useDefaultSecurityToken;
 export const globalOf = binding.globalOf;
 
+export function setFunctionName(func, name = '') {
+    name = '' + name;
+    binding.setFunctionName(func, name);
+}
+
 export function nativeFunction(callback, options) {
     if (typeof callback !== 'function') {
         throw new TypeError(`Expected arguments[0] to be a function`);
