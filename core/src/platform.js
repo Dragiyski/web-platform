@@ -1,13 +1,12 @@
 import { nativeFunction, globalOf, getSecurityToken, setSecurityToken, setFunctionName } from '@dragiyski/v8-extensions';
 import { createContext, runInContext, compileFunction, Script } from 'node:vm';
+import Namespace from './namespace.js';
 import { copyPrimordials } from './primordials.js';
 
-export default class Platform {
+export default class Platform extends Namespace {
     static #globalMap = new WeakMap();
     static #stack = [];
     static realm = Object.create(null);
-    #interface = Symbol('interface');
-    #implementation = new WeakMap();
     #context;
     #execute;
     #executionState;
@@ -20,6 +19,7 @@ export default class Platform {
     #expose;
 
     constructor(options) {
+        super();
         options ??= {};
         this.#executionState = this.#executeDirect;
         this.#execute = this.#enterExecuteState;
@@ -54,7 +54,7 @@ export default class Platform {
             this.#expose[exposeName] = true;
         }
         // Ensure the global of the context is named.
-        const NamedGlobal = nativeFunction(() => { }, { name: globalName });
+        const NamedGlobal = nativeFunction(() => {}, { name: globalName });
         Object.setPrototypeOf(NamedGlobal.prototype, null);
         // The global will still have constructor, but it will be from its context's Function prototype.
         delete NamedGlobal.prototype.constructor;
@@ -98,6 +98,10 @@ try {
 
     is(name) {
         return name in this.#expose;
+    }
+
+    getRealm() {
+        return this.implementationOf(this.realm);
     }
 
     captureStackTrace(object, constructor) {
@@ -185,6 +189,14 @@ try {
     }
 
     createNativeFunction(callee, options) {
+        if (typeof options === 'function' && (callee == null || typeof callee === 'object')) {
+            const opt = callee;
+            callee = options;
+            options = opt;
+        }
+        if (typeof callee !== 'function') {
+            throw new TypeError('callee: not a function');
+        }
         return nativeFunction(
             (self, args, newTarget) => this.#execute(callee, this.#contextSelf(self), args, newTarget),
             Object.assign(Object.create(null), { ...options, context: this.global })
@@ -425,130 +437,6 @@ try {
             }
             // When the security stack is empty, the platform is left unlocked.
         }
-        return this;
-    }
-
-    ownInterfaceOf(object) {
-        if (object !== Object(object)) {
-            return null;
-        }
-        if (Object.prototype.hasOwnProperty.call(object, this.#interface)) {
-            return object[this.#interface];
-        }
-        return null;
-    }
-
-    ownImplementationOf(object) {
-        if (object !== Object(object)) {
-            return null;
-        }
-        if (this.#implementation.has(object)) {
-            return this.#implementation.get(object);
-        }
-        return null;
-    }
-
-    interfaceOf(object) {
-        if (object !== Object(object)) {
-            return null;
-        }
-        if (this.#interface in object) {
-            return object[this.#interface];
-        }
-        return null;
-    }
-
-    implementationOf(object) {
-        if (object !== Object(object)) {
-            return null;
-        }
-        while (object != null) {
-            if (this.#implementation.has(object)) {
-                return this.#implementation.get(object);
-            }
-            object = Object.getPrototypeOf(object);
-        }
-        return null;
-    }
-
-    hasOwnImplementation(object) {
-        if (object !== Object(object)) {
-            return false;
-        }
-        return this.#implementation.has(object);
-    }
-
-    hasOwnInterface(object) {
-        if (object !== Object(object)) {
-            return false;
-        }
-        return Object.prototype.hasOwnProperty.call(object, this.#interface);
-    }
-
-    hasImplementation(object) {
-        if (object !== Object(object)) {
-            return false;
-        }
-        while (object != null) {
-            if (this.#implementation.has(object)) {
-                return true;
-            }
-            object = Object.getPrototypeOf(object);
-        }
-        return false;
-    }
-
-    hasInterface(object) {
-        if (object !== Object(object)) {
-            return false;
-        }
-        return this.#interface in object;
-    }
-
-    removeImplementationOf(object) {
-        if (object !== Object(object)) {
-            return this;
-        }
-        if (this.#implementation.has(object)) {
-            const implementationObject = this.#implementation.get(object);
-            this.#implementation.delete(object);
-            delete implementationObject[this.#interface];
-        }
-        return this;
-    }
-
-    removeInterfaceOf(object) {
-        if (object !== Object(object)) {
-            return this;
-        }
-        if (Object.prototype.hasOwnProperty.call(object, this.#interface)) {
-            const interfaceObject = object[this.#interface];
-            this.#implementation.delete(interfaceObject);
-            delete object[this.#interface];
-        }
-        return this;
-    }
-
-    setImplementation(interfaceObject, implementationObject) {
-        if (interfaceObject !== Object(interfaceObject) || implementationObject !== Object(implementationObject)) {
-            throw new TypeError(`Implementation linking can only be realized between two objects`);
-        }
-        if (this.hasOwnImplementation(interfaceObject)) {
-            const otherImplementation = this.ownImplementationOf(interfaceObject);
-            if (otherImplementation === implementationObject) {
-                return this;
-            }
-            throw new ReferenceError(`interfaceObject: already has an implementation in this platform`);
-        }
-        if (this.hasOwnInterface(implementationObject)) {
-            const otherInterface = this.ownInterfaceOf(implementationObject);
-            if (otherInterface === interfaceObject) {
-                return this;
-            }
-            throw new ReferenceError(`implementationObject: already has an interface in this platform`);
-        }
-        this.#implementation.set(interfaceObject, implementationObject);
-        implementationObject[this.#interface] = interfaceObject;
         return this;
     }
 

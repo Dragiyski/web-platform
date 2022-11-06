@@ -1,166 +1,100 @@
-import { Platform, symbols } from '@dragiyski/web-platform-core';
-import * as interceptors from './interceptor.js';
-import { performance } from 'node:perf_hooks';
-import { eventConstructingSteps } from './symbols.js';
+import {
+    caller,
+    constructorErrorMessageInterceptor,
+    functionInterceptor,
+    getter,
+    methodErrorMessageInterceptor,
+    Platform,
+    requireArgumentCountInterceptor,
+    returnValueInterfaceInterceptor,
+    validateThisImplementationInterceptor,
+    returnArrayInterfaceInterceptor,
+    illegalConstructor,
+    illegalInvocation,
+    validateConstructorTargetInterceptor
+} from '@dragiyski/web-platform-core';
+import { requireNewTargetInterceptor } from './interceptor.js';
 
-const { concept, constructor } = symbols;
+const EventPhase = Object.assign(Object.create(), {
+    NONE: 0,
+    CAPTURING_PHASE: 1,
+    AT_TARGET: 2,
+    BUBBLING_PHASE: 3
+});
 
-export default class Event {
-    static [concept] = Object.assign(Object.create(null), {
-        toBooleanCopy(name) {
-            return function (event, value) {
-                event[concept][name] = !!value;
-            };
-        },
-        EventPhase: Object.assign(Object.create(null), {
-            NONE: 0,
-            CAPTURING_PHASE: 1,
-            AT_TARGET: 2,
-            BUBBLING_PHASE: 3
-        }),
-        composedPathReturnValueInterceptor(callee) {
-            return function interceptor(platform, ...rest) {
-                const value = callee(platform, ...rest);
-                const wrapped = new platform.primordials.Array();
-                Reflect.apply(platform.primordials['Array.prototype.push'], wrapped, value.map(impl => platform.interfaceOf(impl) ?? impl));
-                return wrapped;
-            };
-        },
-        setCanceledFlag(event) {
-            if (event[concept].cancelable && !event[concept].inPassiveListenerFlag) {
-                event[concept].canceledFlag = true;
-            }
-        },
-        initialize(event, type, bubbles, cancelable) {
-            event[concept].initializedFlag = true;
-            event[concept].stopPropagationFlag = false;
-            event[concept].stopImmediatePropagationFlag = false;
-            event[concept].canceledFlag = false;
-            event[concept].isTrusted = false;
-            event[concept].target = null;
-            event[concept].type = '' + type;
-            event[concept].bubbles = !!bubbles;
-            event[concept].cancelable = !!cancelable;
-        },
-        create(Interface, platform = null, signaledAt = null) {
-            if (platform == null) {
-                try {
-                    platform = Platform.current();
-                } catch (e) {
-                    if (!(e instanceof Platform.RuntimeError)) {
-                        throw e;
-                    }
-                }
-            }
-            const dictionary = Object.create(null);
-            if (signaledAt == null) {
-                signaledAt = performance.timeOrigin + performance.now();
-            }
-            const event = this.innerEventCreationSteps(Interface, platform, signaledAt, dictionary);
-            event[concept].isTrusted = true;
-            return event;
-        },
-        innerEventCreationSteps(Interface, platform, time, dictionary) {
-            // platform can be null if this class is used without a platform.
-            // However, [constructor] symbol from the platform cannot be called,
-            // the type must be initialized manually, as it will be initially an empty string.
-            const event = new Interface();
-            let timeOrigin = performance.timeOrigin;
-            if (platform != null) {
-                const eventInterface = Object.create(platform.interfaceOf(Interface.prototype));
-                platform.setImplementation(eventInterface, event);
-                this.legacyUnforgeable(Interface, eventInterface);
-                if (platform.realm.performance?.[concept]?.timeOrigin != null) {
-                    // In case performance API is simulated, timeOrigin can be shifted to "start of page" in a simulated browser.
-                    timeOrigin = platform.realm.performance[concept].timeOrigin;
-                }
-            }
-            event[concept].timeStamp = time - timeOrigin;
-            const EventInitDict = Interface[concept].EventInitDict;
-            for (const key in EventInitDict) {
-                if (key in dictionary) {
-                    EventInitDict[key](event, dictionary[key]);
-                }
-            }
-            if (typeof platform?.realm?.[eventConstructingSteps] === 'function') {
-                platform.realm[eventConstructingSteps](event, dictionary);
-            }
-            if (typeof this[eventConstructingSteps] === 'function') {
-                this[eventConstructingSteps](event, dictionary);
-            }
-            return event;
-        },
-        legacyUnforgeable(Interface, object) {
-            const platform = Platform.current();
-            const { validateThisImplementationInterceptor, functionInterceptor, getter } = interceptors.core;
-            const name = 'isTrusted';
-            Object.defineProperty(object, name, {
-                enumerable: true,
-                get: platform.createNativeFunction(
-                    validateThisImplementationInterceptor(
-                        Interface,
-                        functionInterceptor(
-                            getter(name)
-                        )
-                    ),
-                    { name, constructor: false }
-                )
-            });
+class EventInit {
+    constructor(dict) {
+        if (dict == null) {
+            dict = {};
+        } else if (dict !== Object(dict)) {
+            Platform.current().throw(new TypeError(`The provided value is not of type 'EventInit'.`));
         }
-    });
+        for (const key of ['bubbles', 'cancelable', 'composed']) {
+            this[key] = !!dict[key];
+        }
+    }
+}
 
-    static {
-        this[concept].EventInitDict = Object.assign(Object.create(null), {
-            bubbles: this[concept].toBooleanCopy('bubbles'),
-            cancelable: this[concept].toBooleanCopy('cancelable'),
-            composed: (event, value) => { event[concept].composedFlag = !!value; }
+Object.setPrototypeOf(EventInit.prototype, null);
+
+class Event {
+    target = null;
+    relatedTarget = null;
+    touchTargetList = [];
+    path = [];
+    type = '';
+    currentTarget = null;
+    stopPropagation = false;
+    stopImmediatePropagation = false;
+    canceled = false;
+    inPassiveListener = false;
+    composed = false;
+    initialized = false;
+    dispatching = false;
+    bubbles = false;
+    cancelable = false;
+
+    static legacyUnforgeables(event) {
+        const platform = Platform.current();
+        Object.defineProperty(platform.interfaceOf(event), 'isTrusted', {
+            enumerable: true,
+            get: platform.createNativeFunction(
+                { name: 'isTrusted', length: 0 },
+                validateThisImplementationInterceptor(
+                    () => Platform.current().getRealm().Event,
+                    functionInterceptor(
+                        function isTrusted() {
+                            return this.isTrusted;
+                        }
+                    )
+                )
+            )
         });
     }
 
-    [concept] = Object.assign(Object.create(null), {
-        target: null,
-        relatedTarget: null,
-        path: [],
-        type: '',
-        currentTarget: null,
-        // eslint-disable-next-line no-use-before-define
-        eventPhase: Event[concept].EventPhase.NONE,
-        stopPropagationFlag: false,
-        stopImmediatePropagationFlag: false,
-        canceledFlag: false,
-        inPassiveListenerFlag: false,
-        composedFlag: false,
-        initializedFlag: false,
-        dispatchFlag: false,
-        bubbles: false,
-        cancelable: false,
-        isTrusted: false,
-        timeStamp: void 0
-    });
-
-    get type() {
-        return this[concept].type;
-    }
-
-    get target() {
-        return this[concept].target;
-    }
-
-    get srcElement() {
-        return this[concept].target;
-    }
-
-    get currentTarget() {
-        return this[concept].currentTarget;
+    /**
+     * @param {*} type
+     * @param {*} bubbles
+     * @param {*} cancelable
+     */
+    initialize(type, bubbles, cancelable) {
+        this.initialized = true;
+        this.stopPropagation = false;
+        this.stopImmediatePropagation = false;
+        this.canceled = false;
+        this.target = null;
+        this.type = '' + type;
+        this.bubbles = !!bubbles;
+        this.cancelable = !!cancelable;
     }
 
     composedPath() {
         const composedPath = [];
-        const path = this[concept].path;
+        const path = this.path;
         if (path.length <= 0) {
             return composedPath;
         }
-        const currentTarget = this[concept].currentTarget;
+        const currentTarget = this.currentTarget;
         composedPath.push(currentTarget);
         let currentTargetIndex = 0;
         let currentTargetHiddenSubtreeLevel = 0;
@@ -185,7 +119,7 @@ export default class Event {
             if (path[index].rootOfClosedTree) {
                 ++currentHiddenLevel;
             }
-            if (currentHiddenLevel <= maxHiddenLevel) {
+            if (currentHiddenLevel < maxHiddenLevel) {
                 composedPath.unshift(path[index].invocationTarget);
             }
             if (path[index].slotInClosedTree) {
@@ -198,7 +132,7 @@ export default class Event {
         }
         currentHiddenLevel = currentTargetHiddenSubtreeLevel;
         maxHiddenLevel = currentTargetHiddenSubtreeLevel;
-        index = currentTarget + 1;
+        index = currentTargetIndex + 1;
         while (index < path.length) {
             if (path[index].slotInClosedTree) {
                 ++currentHiddenLevel;
@@ -217,207 +151,303 @@ export default class Event {
         return composedPath;
     }
 
-    get eventPhase() {
-        return this[concept].eventPhase;
-    }
-
-    stopPropagation() {
-        this[concept].stopPropagationFlag = true;
-    }
-
-    get cancelBubble() {
-        return !!this[concept].stopPropagationFlag;
-    }
-
-    set cancelBubble(value) {
-        if (value) {
-            this[concept].stopPropagationFlag = true;
+    setCanceledFlag() {
+        if (this.cancelable && !this.inPassiveListener) {
+            this.canceled = true;
         }
-    }
-
-    stopImmediatePropagation() {
-        this[concept].stopPropagationFlag = true;
-        this[concept].stopImmediatePropagationFlag = true;
-    }
-
-    get bubbles() {
-        return this[concept].bubbles;
-    }
-
-    get cancelable() {
-        return this[concept].cancelable;
-    }
-
-    get returnValue() {
-        return !this[concept].canceledFlag;
-    }
-
-    set returnValue(value) {
-        if (!value) {
-            Event[concept].setCanceledFlag(this);
-        }
-    }
-
-    preventDefault() {
-        Event[concept].setCanceledFlag(this);
-    }
-
-    get defaultPrevented() {
-        return !!this[concept].canceledFlag;
-    }
-
-    get composed() {
-        return !!this[concept].composedFlag;
-    }
-
-    get isTrusted() {
-        return !!this[concept].isTrusted;
-    }
-
-    get timeStamp() {
-        return this[concept].timeStamp;
-    }
-
-    initEvent(type, bubbles, cancelable) {
-        if (this[concept].dispatchFlag) {
-            return;
-        }
-        Event[concept].initialize(this, type, bubbles, cancelable);
-    }
-
-    static [constructor](type, eventInitDict) {
-        const platform = Platform.current();
-        const event = this[concept].innerEventCreationSteps(
-            this,
-            platform,
-            performance.timeOrigin + performance.now(),
-            eventInitDict
-        );
-        event[concept].type = '' + type;
-        return event;
     }
 }
 
-export function install(platform) {
-    const {
-        returnValueInterfaceInterceptor,
-        requireThisImplementationInterceptor,
-        validateThisImplementationInterceptor,
-        constructorErrorMessageInterceptor,
-        minimumArgumentsInterceptor,
-        functionInterceptor,
-        getter,
-        setter,
-        caller
-    } = interceptors.core;
-    const { validateNewTargetInterceptor } = interceptors;
-    const Interface = platform.realm.Event = platform.createInterface(
-        Event,
+function Constructor(platform, _, [type, eventInitDict], Implementation) {
+    const realm = platform.getRealm();
+    eventInitDict = new realm.EventInit(eventInitDict);
+    const time = realm.performance?.now?.() ?? performance.now();
+    const event = platform.call(realm.innerEventCreationSteps, null, Implementation, platform, time, eventInitDict);
+    event.type = '' + type;
+    return event;
+}
+
+/**
+ * @param {Function} Implementation
+ * @param {Platform} platform
+ * @param {int} time
+ * @param {EventInit} dictionary
+ */
+function innerEventCreationSteps(Implementation, platform, time, dictionary) {
+    const interface_prototype = platform.interfaceOf(Implementation);
+    if (interface_prototype !== Object(interface_prototype)) {
+        throw illegalConstructor();
+    }
+    const implementation = new Implementation();
+    const iface = Object.create(interface_prototype);
+    platform.setImplementation(iface, implementation);
+    if (typeof Implementation.legacyUnforgeables === 'function') {
+        Implementation.legacyUnforgeables(implementation);
+    }
+    implementation.initialized = true;
+    implementation.timeStamp = time;
+    for (const member in dictionary) {
+        if (member in implementation) {
+            implementation[member] = dictionary[member];
+        }
+    }
+    if (typeof Implementation.eventConstructingSteps === 'function') {
+        Implementation.eventConstructingSteps(implementation, dictionary);
+    }
+    return implementation;
+}
+
+function createEvent(Implementation, platform, time = null) {
+    const realm = platform.getRealm();
+    const dictionary = new realm.EventInit();
+    if (time == null) {
+        time = realm.performance?.now?.() ?? performance.now();
+    }
+    const event = platform.call(realm.innerEventCreationSteps, null, Implementation, platform, time, dictionary);
+    event.isTrusted = true;
+    return event;
+}
+
+/**
+ * @param {Platform} platform
+ */
+export default function install(platform) {
+    const realm = platform.getRealm();
+    realm.EventPhase = EventPhase;
+    realm.EventInit = EventInit;
+    realm.Event = Event;
+    realm.innerEventCreationSteps = innerEventCreationSteps;
+    realm.createEvent = createEvent;
+
+    platform.realm.Event = platform.createInterface(
+        realm.Event,
+        { name: 'Event', length: 1 },
         returnValueInterfaceInterceptor(
             constructorErrorMessageInterceptor(
                 'Event',
-                validateNewTargetInterceptor(
-                    minimumArgumentsInterceptor(
-                        1,
-                        (platform, thisArg, args) => Event[constructor](...args)
+                requireNewTargetInterceptor(
+                    validateConstructorTargetInterceptor(
+                        () => Platform.current().getRealm().Event,
+                        requireArgumentCountInterceptor(1, Constructor)
                     )
                 )
             )
-        ),
-        {
-            name: 'Event',
-            length: 1
-        }
+        )
     );
-    for (const name of ['type', 'eventPhase', 'bubbles', 'cancelable', 'defaultPrevented', 'composed', 'timeStamp']) {
-        Object.defineProperty(Interface.prototype, name, {
+
+    for (const name of ['target', 'currentTarget']) {
+        Object.defineProperty(platform.realm.Event.prototype, name, {
             configurable: true,
             enumerable: true,
             get: platform.createNativeFunction(
-                validateThisImplementationInterceptor(
-                    Event,
-                    functionInterceptor(
-                        getter(name)
-                    )
-                ),
-                { name, constructor: false }
-            )
-        });
-    }
-    for (const name of ['target', 'currentTarget', 'srcElement']) {
-        Object.defineProperty(Interface.prototype, name, {
-            configurable: true,
-            enumerable: true,
-            get: platform.createNativeFunction(
+                { name, length: 0 },
                 returnValueInterfaceInterceptor(
                     validateThisImplementationInterceptor(
-                        Event,
+                        () => Platform.current().getRealm().Event,
                         functionInterceptor(
                             getter(name)
                         )
                     )
-                ),
-                { name, constructor: false }
+                )
             )
         });
     }
 
-    for (const name of ['cancelBubble', 'returnValue']) {
-        Object.defineProperty(Interface.prototype, name, {
+    Object.defineProperty(platform.realm.Event.prototype, 'srcElement', {
+        configurable: true,
+        enumerable: true,
+        get: platform.createNativeFunction(
+            { name: 'srcElement', length: 0 },
+            returnValueInterfaceInterceptor(
+                validateThisImplementationInterceptor(
+                    () => Platform.current().getRealm().Event,
+                    functionInterceptor(
+                        getter('target')
+                    )
+                )
+            )
+        )
+    });
+
+    for (const name of ['type', 'eventPhase', 'bubbles', 'cancelable', 'composed', 'timeStamp']) {
+        Object.defineProperty(platform.realm.Event.prototype, name, {
             configurable: true,
             enumerable: true,
             get: platform.createNativeFunction(
+                { name, length: 0 },
                 validateThisImplementationInterceptor(
-                    Event,
+                    () => Platform.current().getRealm().Event,
                     functionInterceptor(
                         getter(name)
                     )
-                ),
-                { name, constructor: false }
-            ),
-            set: platform.createNativeFunction(
-                validateThisImplementationInterceptor(
-                    Event,
-                    functionInterceptor(
-                        setter(name)
-                    )
-                ),
-                { name, constructor: false }
+                )
             )
         });
     }
 
-    for (const name of ['stopPropagation', 'stopImmediatePropagation', 'preventDefault']) {
-        Object.defineProperty(Interface.prototype, name, {
-            configurable: true,
-            enumerable: true,
-            writable: true,
-            value: platform.createNativeFunction(
-                validateThisImplementationInterceptor(
-                    Event,
-                    functionInterceptor(
-                        caller(name)
-                    )
-                ),
-                { name, constructor: false }
-            )
-        });
-    }
-
-    Object.defineProperty(Interface.prototype, 'composedPath', {
+    Object.defineProperty(platform.realm.Event.prototype, 'composedPath', {
         configurable: true,
         enumerable: true,
         writable: true,
         value: platform.createNativeFunction(
-            Event[concept].composedPathReturnValueInterceptor(
+            { name: 'composedPath', length: 0 },
+            returnArrayInterfaceInterceptor(
                 validateThisImplementationInterceptor(
-                    Event,
+                    () => Platform.current().getRealm().Event,
                     functionInterceptor(
                         caller('composedPath')
                     )
                 )
-            ),
-            { name: 'composedPath', constructor: false }
+            )
+        )
+    });
+
+    Object.defineProperty(platform.realm.Event.prototype, 'stopPropagation', {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value: platform.createNativeFunction(
+            { name: 'stopPropagation', length: 0 },
+            validateThisImplementationInterceptor(
+                () => Platform.current().getRealm().Event,
+                functionInterceptor(
+                    function stopPropagation() {
+                        this.stopPropagation = true;
+                    }
+                )
+            )
+        )
+    });
+
+    Object.defineProperty(platform.realm.Event.prototype, 'cancelBubble', {
+        configurable: true,
+        enumerable: true,
+        get: platform.createNativeFunction(
+            { name: 'cancelBubble', length: 0 },
+            validateThisImplementationInterceptor(
+                () => Platform.current().getRealm().Event,
+                functionInterceptor(
+                    getter('stopPropagation')
+                )
+            )
+        ),
+        set: platform.createNativeFunction(
+            { name: 'cancelBubble', length: 1 },
+            validateThisImplementationInterceptor(
+                () => Platform.current().getRealm().Event,
+                functionInterceptor(
+                    function cancelBubble(value) {
+                        if (value) {
+                            this.stopPropagation = true;
+                        }
+                    }
+                )
+            )
+        )
+    });
+
+    Object.defineProperty(platform.realm.Event.prototype, 'stopImmediatePropagation', {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value: platform.createNativeFunction(
+            { name: 'stopImmediatePropagation', length: 0 },
+            validateThisImplementationInterceptor(
+                () => Platform.current().getRealm().Event,
+                functionInterceptor(
+                    function stopImmediatePropagation() {
+                        this.stopPropagation = true;
+                        this.stopImmediatePropagation = true;
+                    }
+                )
+            )
+        )
+    });
+
+    Object.defineProperty(platform.realm.Event.prototype, 'returnValue', {
+        configurable: true,
+        enumerable: true,
+        get: platform.createNativeFunction(
+            { name: 'returnValue', length: 0 },
+            validateThisImplementationInterceptor(
+                () => Platform.current().getRealm().Event,
+                functionInterceptor(
+                    function returnValue() {
+                        return !this.canceled;
+                    }
+                )
+            )
+        ),
+        set: platform.createNativeFunction(
+            { name: 'returnValue', length: 1 },
+            validateThisImplementationInterceptor(
+                () => Platform.current().getRealm().Event,
+                functionInterceptor(
+                    function returnValue(value) {
+                        if (!value) {
+                            this.setCanceledFlag();
+                        }
+                    }
+                )
+            )
+        )
+    });
+
+    Object.defineProperty(platform.realm.Event.prototype, 'preventDefault', {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value: platform.createNativeFunction(
+            { name: 'preventDefault', length: 0 },
+            validateThisImplementationInterceptor(
+                () => Platform.current().getRealm().Event,
+                functionInterceptor(
+                    function preventDefault() {
+                        this.setCanceledFlag();
+                    }
+                )
+            )
+        )
+    });
+
+    Object.defineProperty(platform.realm.Event.prototype, 'defaultPrevented', {
+        configurable: true,
+        enumerable: true,
+        get: platform.createNativeFunction(
+            { name: 'defaultPrevented', length: 0 },
+            validateThisImplementationInterceptor(
+                () => Platform.current().getRealm().Event,
+                functionInterceptor(
+                    function defaultPrevented() {
+                        return !!this.canceled;
+                    }
+                )
+            )
+        )
+    });
+
+    Object.defineProperty(platform.realm.Event.prototype, 'initEvent', {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value: platform.createNativeFunction(
+            { name: 'initEvent', length: 0 },
+            methodErrorMessageInterceptor(
+                validateThisImplementationInterceptor(
+                    () => Platform.current().getRealm().Event,
+                    requireArgumentCountInterceptor(
+                        1,
+                        functionInterceptor(
+                            function initEvent(type, bubbles, cancelable) {
+                                if (this.dispatching) {
+                                    return;
+                                }
+                                this.initialize(type, bubbles, cancelable);
+                            }
+                        )
+                    )
+                )
+            )
         )
     });
 
@@ -425,24 +455,29 @@ export function install(platform) {
     Object.defineProperty(platform.global, 'Event', {
         configurable: true,
         writable: true,
-        value: Interface
+        value: platform.realm.Event
     });
 
-    Object.defineProperty(platform.global, 'event', {
-        configurable: true,
-        get: platform.createNativeFunction(
-            returnValueInterfaceInterceptor(
-                requireThisImplementationInterceptor(
-                    functionInterceptor(
-                        getter('currentEvent')
-                    )
+    if (platform.is('Window')) {
+        Object.defineProperty(platform.global, 'event', {
+            configurable: true,
+            get: platform.createNativeFunction(
+                { name: 'event', length: 0 },
+                returnValueInterfaceInterceptor(
+                    function event(platform, self) {
+                        if (self !== platform.global) {
+                            throw illegalInvocation();
+                        }
+                        return platform.interfaceOf(platform.global).currentEvent;
+                    }
                 )
             ),
-            { name: 'event' }
-        ),
-        set: platform.createNativeFunction(
-            functionInterceptor(
-                value => {
+            set: platform.createNativeFunction(
+                { name: 'event', length: 1 },
+                function event(platform, self, [value]) {
+                    if (self !== platform.global) {
+                        throw illegalInvocation();
+                    }
                     Object.defineProperty(platform.global, 'event', {
                         configurable: true,
                         enumerable: true,
@@ -451,6 +486,6 @@ export function install(platform) {
                     });
                 }
             )
-        )
-    });
+        });
+    }
 }

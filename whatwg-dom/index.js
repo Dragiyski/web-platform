@@ -1,4 +1,4 @@
-import { install as installEvent } from './src/Event.js';
+import { install as installEvent } from './Event.js';
 
 export function install(platform) {
     installEvent(platform);
