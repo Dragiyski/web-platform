@@ -4,10 +4,16 @@ export const getSecurityToken = binding.getSecurityToken;
 export const setSecurityToken = binding.setSecurityToken;
 export const useDefaultSecurityToken = binding.useDefaultSecurityToken;
 export const globalOf = binding.globalOf;
+export const getFunctionName = binding.getFunctionName;
 
 export function setFunctionName(func, name = '') {
     name = '' + name;
     binding.setFunctionName(func, name);
+}
+
+export function createContext(name = '') {
+    name = '' + name;
+    return binding.createContext(name);
 }
 
 export function nativeFunction(callback, options) {

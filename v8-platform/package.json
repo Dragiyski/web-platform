@@ -1,6 +1,6 @@
 {
     "type": "module",
-    "name": "@dragiyski/v8-extensions",
+    "name": "@dragiyski/v8-platform",
     "private": true,
     "devDependencies": {
         "@babel/eslint-parser": "^7.17.0",

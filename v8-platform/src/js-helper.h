@@ -3,6 +3,7 @@
 
 #include <string>
 #include <type_traits>
+#include <tuple>
 
 #define JS_EXECUTE_RETURN_HANDLE(bailout, type, variable, code) \
 v8::Local<type> variable; \
@@ -81,23 +82,12 @@ for (int i = 0; i < length - offset; ++i) { \
 
 #define NOTHING
 
-#define JS_THROW_INVALID_ARG_COUNT(bailout, context, arguments, expected) \
-    JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, message, ToDetailString(context, "Invalid number of arguments", ": ", "expected ", (expected), ", got ", (arguments).Length())); \
-    v8::Local<v8::Value> error = v8::Exception::TypeError(message); \
+#define JS_THROW_ERROR(bailout, context, ErrorType, ...) {\
+    JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, message, ToDetailString(context, __VA_ARGS__)); \
+    v8::Local<v8::Value> error = v8::Exception::ErrorType(message); \
     scope.GetIsolate()->ThrowException(error); \
-    return bailout;
-
-#define JS_THROW_INVALID_ARG_TYPE(bailout, context, arguments, index, expected) \
-    JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, message, ToDetailString(context, "Invalid arguments", "[", (index), "]", ": ", "expected ", (expected), ", got ", (arguments)[(index)])); \
-    v8::Local<v8::Value> error = v8::Exception::TypeError(message); \
-    scope.GetIsolate()->ThrowException(error); \
-    return bailout;
-
-#define JS_THROW_INVALID_PROPERTY_TYPE(bailout, context, key, expected) \
-    JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, message, ToDetailString(context, "Invalid property ", "[", (key), "]", ": ", "expected ", (expected))); \
-    v8::Local<v8::Value> error = v8::Exception::TypeError(message); \
-    scope.GetIsolate()->ThrowException(error); \
-    return bailout;
+    return bailout; \
+}
 
 #define JS_PROPERTY_ATTRIBUTE_CONSTANT (static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::ReadOnly))
 #define JS_PROPERTY_ATTRIBUTE_FROZEN (static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::DontEnum | v8::ReadOnly))
@@ -236,7 +226,7 @@ for (int i = 0; i < length - offset; ++i) { \
         target = value.As<v8::BigInt>()->Uint64Value(); \
     }
 
-#define JS_OBJECT_STRING_GET(bailout, type, variable, context, object, key) \
+#define JS_OBJECT_GET_KEY_HANDLE(bailout, type, variable, context, object, key) \
     v8::Local<type> variable; \
     { \
         JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, name, ToString(context, key)); \
@@ -245,6 +235,17 @@ for (int i = 0; i < length - offset; ++i) { \
             return bailout; \
         } \
         variable = maybe.ToLocalChecked().As<type>(); \
+    }
+
+#define JS_OBJECT_HAS_KEY(bailout, variable, context, object, key) \
+    bool variable; \
+    { \
+        JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, name, ToString(context, key)); \
+        v8::Maybe<bool> maybe = object->Has(context, name); \
+        if (maybe.IsNothing()) { \
+            return bailout; \
+        } \
+        variable = maybe.ToChecked(); \
     }
 
 namespace {
@@ -470,6 +471,11 @@ namespace {
     template<typename ... T>
     v8::Local<v8::String> StringConcat(v8::Isolate *isolate, T ... rest) {
         return ForEach<T...>::Concat(isolate, rest...);
+    }
+
+    template<typename R, typename ... A>
+    std::tuple<A...> arguments_of(R (*)(A...)) {
+        return std::tuple<A...>();
     }
 }
 #endif // JS_HELPER_H
