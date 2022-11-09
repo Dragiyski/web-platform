@@ -4,6 +4,7 @@
 #include <string>
 #include <type_traits>
 #include <tuple>
+#include <optional>
 
 #define JS_EXECUTE_RETURN_HANDLE(bailout, type, variable, code) \
 v8::Local<type> variable; \
@@ -66,10 +67,10 @@ v8::Local<type> variable; \
 }
 
 
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define MAX_VALUE(a, b) (((a) > (b)) ? (a) : (b))
 
 #define JS_COPY_ARGUMENTS(target, source, offset, length) \
-v8::Local<v8::Value> target[MAX(0, length - offset)]; \
+v8::Local<v8::Value> target[MAX_VALUE(0, length - offset)]; \
 for (int i = 0; i < length - offset; ++i) { \
     target[i] = source[offset + i]; \
 }
@@ -79,6 +80,8 @@ for (int i = 0; i < length - offset; ++i) { \
 #define VOID_NOTHING v8::Nothing<void>()
 
 #define CPP_NOTHING(type) v8::Nothing<type>()
+
+#define OPTIONAL_NOTHING(type) std::optional<type>();
 
 #define NOTHING
 

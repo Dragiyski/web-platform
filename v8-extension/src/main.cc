@@ -3,152 +3,11 @@
 #include <uv.h>
 #include <v8.h>
 #include "js-helper.h"
-
-/**
- * @brief Compile string to a function within a context.
- *
- * @param info
- * @param info[0] {Object} Context
- * @param info[1] {Array<String>} Argument Names (must be valid javascript identifiers)
- * @param info[2] {Array<Object>} Context extension (must be objects)
- * @param info[3] {String} Source Code
- * @param info[3] {Object} options
- */
-void js_compile_function(const v8::FunctionCallbackInfo<v8::Value> &info) {
-    auto isolate = info.GetIsolate();
-    v8::HandleScope scope(isolate);
-    auto current_context = isolate->GetCurrentContext();
-    if (info.Length() < 4) {
-        JS_THROW_ERROR(NOTHING, current_context, TypeError, "Expected ", 3, " arguments, got ", info.Length());
-    }
-    if (!info[0]->IsObject()) {
-        JS_THROW_ERROR(NOTHING, current_context, TypeError, "Expected arguments[0] to be an object, got ", info[0]);
-    }
-    if (!info[1]->IsArray()) {
-        JS_THROW_ERROR(NOTHING, current_context, TypeError, "Expected arguments[1] to be an array, got ", info[0]);
-    }
-    if (!info[2]->IsArray()) {
-        JS_THROW_ERROR(NOTHING, current_context, TypeError, "Expected arguments[2] to be an array, got ", info[0]);
-    }
-    if (!info[3]->IsString()) {
-        JS_THROW_ERROR(NOTHING, current_context, TypeError, "Expected arguments[3] to be a string, got ", info[0]);
-    }
-    v8::Local<v8::Object> options;
-    if (info.Length() > 4 && !info[4]->IsNullOrUndefined()) {
-        if (!info[4]->IsObject()) {
-            JS_THROW_ERROR(NOTHING, current_context, TypeError, "Expected optional arguments[3] to be an object, got ", info[3]);
-        }
-        options = info[4].As<v8::Object>();
-    } else {
-        options = v8::Object::New(isolate);
-    }
-
-    v8::Local<v8::Context> creation_context = current_context;
-    {
-        auto value = info[0].As<v8::Object>()->GetCreationContext();
-        if (!value.IsEmpty()) {
-            creation_context = value.ToLocalChecked();
-        }
-    }
-
-    decltype(info[1].As<v8::Array>()->Length()) arg_length = info[1].As<v8::Array>()->Length();
-    v8::Local<v8::String> args[arg_length];
-    for (decltype(arg_length) i = 0; i < arg_length; ++i) {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, js_arg, info[1].As<v8::Array>()->Get(current_context, i));
-        if (!js_arg->IsString()) {
-            JS_THROW_ERROR(NOTHING, current_context, TypeError, "arguments[1][", i, "]: expected a string, got ", js_arg);
-        }
-    }
-    decltype(info[2].As<v8::Array>()->Length()) ctx_length = info[2].As<v8::Array>()->Length();
-    v8::Local<v8::Object> ctxs[ctx_length];
-    for (decltype(ctx_length) i = 0; i < ctx_length; ++i) {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, js_ctx, info[2].As<v8::Array>()->Get(current_context, i));
-        if (!js_ctx->IsObject()) {
-            JS_THROW_ERROR(NOTHING, current_context, TypeError, "arguments[1][", i, "]: expected a string, got ", js_ctx);
-        }
-    }
-
-    v8::Local<v8::Value> location;
-    int line_offset = 0, column_offset = 0;
-    v8::Local<v8::Value> source_map_url;
-    int script_id = -1;
-    bool is_shared_cross_origin = false, is_opaque = false, is_wasm = false, is_module = false;
-
-    {
-        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, current_context, options, "location");
-        if (!js_value->IsNullOrUndefined()) {
-            location = js_value;
-        }
-    }
-
-    if (!location.IsEmpty()) {
-        {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, current_context, options, "lineOffset");
-            if (!js_value->IsNullOrUndefined()) {
-                JS_EXECUTE_RETURN(NOTHING, int, value, js_value->Int32Value(current_context));
-                line_offset = value;
-            }
-        }
-        {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, current_context, options, "columnOffset");
-            if (!js_value->IsNullOrUndefined()) {
-                JS_EXECUTE_RETURN(NOTHING, int, value, js_value->Int32Value(current_context));
-                column_offset = value;
-            }
-        }
-        {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, current_context, options, "scriptId");
-            if (!js_value->IsNullOrUndefined()) {
-                JS_EXECUTE_RETURN(NOTHING, int, value, js_value->Int32Value(current_context));
-                script_id = value;
-            }
-        }
-        {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, current_context, options, "sourceMapUrl");
-            if (!js_value->IsNullOrUndefined()) {
-                source_map_url = js_value;
-            }
-        }
-        {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, current_context, options, "isSharedCrossOrigin");
-            if (!js_value->IsNullOrUndefined()) {
-                is_shared_cross_origin = js_value->BooleanValue(isolate);
-            }
-        }
-        {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, current_context, options, "isOpaque");
-            if (!js_value->IsNullOrUndefined()) {
-                is_opaque = js_value->BooleanValue(isolate);
-            }
-        }
-        {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, current_context, options, "isWASM");
-            if (!js_value->IsNullOrUndefined()) {
-                is_wasm = js_value->BooleanValue(isolate);
-            }
-        }
-        {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, current_context, options, "isModule");
-            if (!js_value->IsNullOrUndefined()) {
-                is_module = js_value->BooleanValue(isolate);
-            }
-        }
-        v8::ScriptOrigin origin(isolate, location, line_offset, column_offset, is_shared_cross_origin, script_id, source_map_url, is_opaque, is_wasm, is_module);
-        v8::ScriptCompiler::Source source(info[3].As<v8::String>(), origin);
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, result, v8::ScriptCompiler::CompileFunction(creation_context, &source, arg_length, args, ctx_length, ctxs, v8::ScriptCompiler::kEagerCompile));
-        info.GetReturnValue().Set(result);
-    } else {
-        v8::ScriptCompiler::Source source(info[3].As<v8::String>());
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, result, v8::ScriptCompiler::CompileFunction(creation_context, &source, arg_length, args, ctx_length, ctxs, v8::ScriptCompiler::kEagerCompile));
-        info.GetReturnValue().Set(result);
-    }
-    {
-        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, current_context, options, "name");
-        if (js_value->IsString()) {
-            info.GetReturnValue().Get().As<v8::Function>()->SetName(js_value.As<v8::String>());
-        }
-    }
-}
+#include "function.h"
+#include "security-token.h"
+#include "native-function.h"
+#include "compile-function.h"
+#include "context.h"
 
 class Script : public node::ObjectWrap {
 public:
@@ -521,7 +380,7 @@ public:
             JS_THROW_ERROR(NOTHING, context, RangeError, "This module has no requests");
         }
         if (index < 0 || index >= wrapper->m_response_list.size()) {
-            JS_THROW_ERROR(NOTHING, context, RangeError, "Expected arguments[0] to be an integer in range 0 and ", wrapper->m_response_list.size() - 1, ", got ", index);
+            JS_THROW_ERROR(NOTHING, context, RangeError, "Expected arguments[0] to be an integer in range 0 and ", int(wrapper->m_response_list.size() - 1), ", got ", index);
         }
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Module, response_module, extractModuleFromObject(context, info[1].As<v8::Object>()));
     }
