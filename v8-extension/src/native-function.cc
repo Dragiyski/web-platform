@@ -29,27 +29,25 @@ void js_create_native_function(const v8::FunctionCallbackInfo<v8::Value>& info) 
         JS_THROW_ERROR(NOTHING, context, TypeError, "Expected ", 1, " arguments, got ", info.Length());
     }
     if (!info[0]->IsObject()) {
-        JS_THROW_ERROR(NOTHING, context, TypeError, "Expected arguments[0] to be an object, got ", info[0]);
+        JS_THROW_ERROR(NOTHING, context, TypeError, "Expected arguments[0] to be an object");
     }
     JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, string_context, ToString(context, "context"));
     JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, string_name, ToString(context, "name"));
-    JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, string_code, ToString(context, "code"));
-    JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, string_location, ToString(context, "location"));
     JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, string_length, ToString(context, "length"));
     auto options = info[0].As<v8::Object>();
 
-    v8::Local<v8::String> location;
+    v8::Local<v8::Function> callee;
     {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, value, options->Get(context, string_location));
-        if (!value->String()) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option '", string_location, "' to be a string, got ", value);
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Function, value, context, options, "function");
+        if (!value->IsFunction()) {
+            JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option 'function' to be a function");
         }
-        callee = value.As<v8::Function>();
+        callee = value;
     }
 
     v8::ConstructorBehavior constructor_behavior = v8::ConstructorBehavior::kAllow;
     {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, value, options->Get(context, string_pure));
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Function, value, context, options, "pure");
         if (value->BooleanValue(isolate)) {
             constructor_behavior = v8::ConstructorBehavior::kThrow;
         }
@@ -57,33 +55,18 @@ void js_create_native_function(const v8::FunctionCallbackInfo<v8::Value>& info) 
 
     v8::Local<v8::Context> callee_context = context;
     {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, value, options->Get(context, string_context));
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Object, value, context, options, "context");
         if (!value->IsNullOrUndefined()) {
             if (!value->IsObject()) {
-                JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option '", string_context, "' to be an object, got ", value);
+                JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option 'context' to be an object");
             }
-            v8::MaybeLocal<v8::Context> creation_context;
-            {
-                v8::TryCatch try_catch(isolate);
-                creation_context = value.As<v8::Object>()->GetCreationContext();
-                if (creation_context.IsEmpty()) {
-                    if (try_catch.HasCaught() || !try_catch.CanContinue() || try_catch.HasTerminated()) {
-                        try_catch.ReThrow();
-                        return;
-                    }
-                    // In case object has no creation context and it is not an error...
-                }
-            }
-            if (creation_context.IsEmpty()) {
-                JS_THROW_ERROR(NOTHING, context, Error, "Unable to retrieve the creation context for object specified at option 'context'");
-            }
-            callee_context = creation_context.ToLocalChecked();
+            JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Context, ctx, value->GetCreationContext());
         }
     }
 
     int length = 0;
     {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, js_value, options->Get(context, string_pure));
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "pure");
         if (!js_value->IsNullOrUndefined()) {
             JS_EXECUTE_RETURN(NOTHING, int, value, js_value->Int32Value(context));
             length = value;
@@ -92,10 +75,10 @@ void js_create_native_function(const v8::FunctionCallbackInfo<v8::Value>& info) 
 
     v8::Local<v8::String> name;
     {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, js_value, options->Get(context, string_pure));
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "name");
         if (!js_value->IsNullOrUndefined()) {
             if (!js_value->IsString()) {
-                JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option '", string_name, "' to be a string, got ", js_value);
+                JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option 'name' to be a string");
             }
             name = js_value.As<v8::String>();
         }

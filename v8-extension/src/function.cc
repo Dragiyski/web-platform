@@ -30,21 +30,21 @@ void js_function_get_name(const v8::FunctionCallbackInfo<v8::Value> &info) {
     info.GetReturnValue().Set(info[0].As<v8::Function>()->GetName());
 }
 
-std::optional<v8::ScriptCompiler::Source> source_from_object(v8::Local<v8::Context> context, v8::Local<v8::Object> options) {
+std::unique_ptr<v8::ScriptCompiler::Source> source_from_object(v8::Local<v8::Context> context, v8::Local<v8::Object> options) {
     auto isolate = context->GetIsolate();
     v8::HandleScope scope(isolate);
 
     v8::Local<v8::String> source;
     {
-        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "source");
+        JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "source");
         if (!js_value->IsString()) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option 'source' to be a string.");
+            JS_THROW_ERROR(nullptr, context, TypeError, "Expected option 'source' to be a string.");
         }
         source = js_value.As<v8::String>();
     }
     v8::Local<v8::Value> location;
     {
-        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "location");
+        JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "location");
         if (!js_value->IsNullOrUndefined()) {
             location = js_value;
         }
@@ -56,60 +56,60 @@ std::optional<v8::ScriptCompiler::Source> source_from_object(v8::Local<v8::Conte
         int script_id = -1;
         bool is_shared_cross_origin = false, is_opaque = false, is_wasm = false, is_module = false;
         {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "lineOffset");
+            JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "lineOffset");
             if (!js_value->IsNullOrUndefined()) {
-                JS_EXECUTE_RETURN(NOTHING, int, value, js_value->Int32Value(context));
+                JS_EXECUTE_RETURN(nullptr, int, value, js_value->Int32Value(context));
                 line_offset = value;
             }
         }
         {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "columnOffset");
+            JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "columnOffset");
             if (!js_value->IsNullOrUndefined()) {
-                JS_EXECUTE_RETURN(NOTHING, int, value, js_value->Int32Value(context));
+                JS_EXECUTE_RETURN(nullptr, int, value, js_value->Int32Value(context));
                 column_offset = value;
             }
         }
         {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "scriptId");
+            JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "scriptId");
             if (!js_value->IsNullOrUndefined()) {
-                JS_EXECUTE_RETURN(NOTHING, int, value, js_value->Int32Value(context));
+                JS_EXECUTE_RETURN(nullptr, int, value, js_value->Int32Value(context));
                 script_id = value;
             }
         }
         {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "sourceMapUrl");
+            JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "sourceMapUrl");
             if (!js_value->IsNullOrUndefined()) {
                 source_map_url = js_value;
             }
         }
         {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "isSharedCrossOrigin");
+            JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "isSharedCrossOrigin");
             if (!js_value->IsNullOrUndefined()) {
                 is_shared_cross_origin = js_value->BooleanValue(isolate);
             }
         }
         {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "isOpaque");
+            JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "isOpaque");
             if (!js_value->IsNullOrUndefined()) {
                 is_opaque = js_value->BooleanValue(isolate);
             }
         }
         {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "isWASM");
+            JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "isWASM");
             if (!js_value->IsNullOrUndefined()) {
                 is_wasm = js_value->BooleanValue(isolate);
             }
         }
         {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "isModule");
+            JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "isModule");
             if (!js_value->IsNullOrUndefined()) {
                 is_module = js_value->BooleanValue(isolate);
             }
         }
 
         v8::ScriptOrigin origin(isolate, location, line_offset, column_offset, is_shared_cross_origin, script_id, source_map_url, is_opaque, is_wasm, is_module);
-        return std::optional<v8::ScriptCompiler::Source>(std::move(v8::ScriptCompiler::Source(source, origin)));
+        return std::make_unique<v8::ScriptCompiler::Source>(source, origin);
     } else {
-        return std::optional<v8::ScriptCompiler::Source>(std::move(v8::ScriptCompiler::Source(source)));
+        return std::make_unique<v8::ScriptCompiler::Source>(source);
     }
 }

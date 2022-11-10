@@ -1,5 +1,6 @@
 #include "compile-function.h"
 #include "js-helper.h"
+#include "function.h"
 
 void js_compile_function(const v8::FunctionCallbackInfo<v8::Value>& info) {
     auto isolate = info.GetIsolate();
@@ -53,71 +54,36 @@ void js_compile_function(const v8::FunctionCallbackInfo<v8::Value>& info) {
         scopes[i] = js_value.As<v8::Object>();
     }
 
+    v8::Local<v8::String> name;
     {
-        v8::Local<v8::Value> location;
-        {
-            JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "location");
-            if (!js_value->IsNullOrUndefined()) {
-                location = js_value;
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::String, js_value, context, options, "name");
+        if (!js_value->IsNullOrUndefined()) {
+            if(!js_value->IsString()) {
+                JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option `name` to be a string.");
             }
-        }
-
-        if (!location.IsEmpty()) {
-            int line_offset = 0, column_offset = 0;
-            v8::Local<v8::Value> source_map_url;
-            int script_id = -1;
-            bool is_shared_cross_origin = false, is_opaque = false, is_wasm = false, is_module = false;
-            {
-                JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "lineOffset");
-                if (!js_value->IsNullOrUndefined()) {
-                    JS_EXECUTE_RETURN(NOTHING, int, value, js_value->Int32Value(context));
-                    line_offset = value;
-                }
-            }
-            {
-                JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "columnOffset");
-                if (!js_value->IsNullOrUndefined()) {
-                    JS_EXECUTE_RETURN(NOTHING, int, value, js_value->Int32Value(context));
-                    column_offset = value;
-                }
-            }
-            {
-                JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "scriptId");
-                if (!js_value->IsNullOrUndefined()) {
-                    JS_EXECUTE_RETURN(NOTHING, int, value, js_value->Int32Value(context));
-                    script_id = value;
-                }
-            }
-            {
-                JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "sourceMapUrl");
-                if (!js_value->IsNullOrUndefined()) {
-                    source_map_url = js_value;
-                }
-            }
-            {
-                JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "isSharedCrossOrigin");
-                if (!js_value->IsNullOrUndefined()) {
-                    is_shared_cross_origin = js_value->BooleanValue(isolate);
-                }
-            }
-            {
-                JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "isOpaque");
-                if (!js_value->IsNullOrUndefined()) {
-                    is_opaque = js_value->BooleanValue(isolate);
-                }
-            }
-            {
-                JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "isWASM");
-                if (!js_value->IsNullOrUndefined()) {
-                    is_wasm = js_value->BooleanValue(isolate);
-                }
-            }
-            {
-                JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "isModule");
-                if (!js_value->IsNullOrUndefined()) {
-                    is_module = js_value->BooleanValue(isolate);
-                }
-            }
+            name = js_value;
         }
     }
+
+    v8::Local<v8::Context> creation_context = context;
+    {
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Object, js_value, context, options, "context");
+        if (!js_value->IsNullOrUndefined()) {
+            if(!js_value->IsObject()) {
+                JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option `context` to be an object.");
+            }
+            JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Context, value, js_value->GetCreationContext());
+            creation_context = value;
+        }
+    }
+
+    auto source = source_from_object(context, options);
+    if (!source) {
+        return;
+    }
+    JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, result, v8::ScriptCompiler::CompileFunction(creation_context, source.get(), arguments_length, arguments_length > 0 ? argument_names : nullptr, scopes_length, scopes_length > 0 ? scopes : nullptr, v8::ScriptCompiler::kEagerCompile));
+    if (!name.IsEmpty()) {
+        result->SetName(name);
+    }
+    info.GetReturnValue().Set(result);
 }
