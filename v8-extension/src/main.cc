@@ -8,7 +8,6 @@
 #include "native-function.h"
 #include "compile-function.h"
 #include "context.h"
-#include "script.h"
 
 NODE_MODULE_INIT() {
     {
@@ -32,11 +31,6 @@ NODE_MODULE_INIT() {
         JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
     }
     {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "createContext"));
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_create_context, exports, 1, v8::ConstructorBehavior::kThrow));
-        JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
-    }
-    {
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "createNativeFunction"));
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_create_native_function, exports, 1, v8::ConstructorBehavior::kThrow));
         JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
@@ -57,8 +51,8 @@ NODE_MODULE_INIT() {
         JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
     }
     {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "Script"));
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::FunctionTemplate, class_template, Script::Template(context));
+        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "Context"));
+        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::FunctionTemplate, class_template, Context::Template(context));
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, class_template->GetFunction(context));
         JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
     }

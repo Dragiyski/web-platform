@@ -46,7 +46,8 @@ std::unique_ptr<v8::ScriptCompiler::Source> source_from_object(v8::Local<v8::Con
     {
         JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "location");
         if (!js_value->IsNullOrUndefined()) {
-            location = js_value;
+            JS_EXECUTE_RETURN_HANDLE(nullptr, v8::String, value, js_value->ToString(context));
+            location = value;
         }
     }
 
@@ -79,7 +80,8 @@ std::unique_ptr<v8::ScriptCompiler::Source> source_from_object(v8::Local<v8::Con
         {
             JS_OBJECT_GET_KEY_HANDLE(nullptr, v8::Value, js_value, context, options, "sourceMapUrl");
             if (!js_value->IsNullOrUndefined()) {
-                source_map_url = js_value;
+                JS_EXECUTE_RETURN_HANDLE(nullptr, v8::String, value, js_value->ToString(context));
+                source_map_url = value;
             }
         }
         {
