@@ -4,23 +4,10 @@
 
 #include <mutex>
 #include <map>
+#include <set>
+#include <node.h>
 
-namespace {
-    std::map<v8::Isolate*, v8::Global<v8::FunctionTemplate>> template_map;
-    std::mutex template_map_mutex;
-    std::map<v8::Isolate*, v8::Global<v8::Private>> context_symbol_map;
-    std::mutex context_symol_map_mutex;
-
-    void v8_throw_illegal_constructor(const v8::FunctionCallbackInfo<v8::Value>& info) {
-        auto isolate = info.GetIsolate();
-        v8::HandleScope scope(isolate);
-        auto context = isolate->GetCurrentContext();
-
-        JS_THROW_ERROR(NOTHING, context, TypeError, "Illegal constructor");
-    }
-}
-
-void js_global_of(const v8::FunctionCallbackInfo<v8::Value>& info) {
+void js_global_of(const v8::FunctionCallbackInfo<v8::Value> &info) {
     auto isolate = info.GetIsolate();
     v8::HandleScope scope(isolate);
     info.GetReturnValue().SetNull();
@@ -30,24 +17,34 @@ void js_global_of(const v8::FunctionCallbackInfo<v8::Value>& info) {
     }
 }
 
-v8::MaybeLocal<v8::FunctionTemplate> Context::Template(v8::Local<v8::Context> context) {
-    auto isolate = context->GetIsolate();
-    v8::EscapableHandleScope scope(isolate);
-    std::lock_guard template_map_lock(template_map_mutex);
-    auto location = template_map.find(isolate);
-    if (location != template_map.end()) {
-        auto result = location->second.Get(isolate);
-        return scope.Escape(result);
-    }
-    auto tpl = v8::FunctionTemplate::New(isolate, Constructor, v8::Local<v8::Value>(), v8::Local<v8::Signature>());
-    JS_EXECUTE_RETURN_HANDLE(JS_NOTHING(v8::FunctionTemplate), v8::String, name, ToString(context, "Context"));
-    tpl->SetClassName(name);
-    tpl->InstanceTemplate()->SetInternalFieldCount(1);
+std::map<v8::Isolate *, Context::per_isolate_value> Context::per_isolate;
 
-    auto signature = v8::Signature::New(isolate, tpl);
+v8::Maybe<void> Context::Init(v8::Local<v8::Context> context) {
+    auto isolate = context->GetIsolate();
+    per_isolate.emplace(std::piecewise_construct, std::make_tuple(isolate), std::make_tuple());
+    JS_EXECUTE_IGNORE(VOID_NOTHING, init_template(context));
+    JS_EXECUTE_IGNORE(VOID_NOTHING, init_symbol(context));
+
+    auto node_env = node::GetCurrentEnvironment(context);
+    if (node_env != nullptr) {
+        node::AtExit(node_env, reinterpret_cast<void(*)(void *)>(at_exit), isolate);
+        auto node_platform = node::GetMultiIsolatePlatform(node_env);
+        node_platform->AddIsolateFinishedCallback(isolate, reinterpret_cast<void(*)(void *)>(on_isolate_dispose), isolate);
+    }
+    return v8::JustVoid();
+}
+
+v8::Maybe<void> Context::init_template(v8::Local<v8::Context> context) {
+    auto isolate = context->GetIsolate();
+    auto function_template = v8::FunctionTemplate::New(isolate, Constructor, v8::Local<v8::Value>(), v8::Local<v8::Signature>());
+    JS_EXECUTE_RETURN_HANDLE(VOID_NOTHING, v8::String, name, ToString(context, "Context"));
+    function_template->SetClassName(name);
+    function_template->InstanceTemplate()->SetInternalFieldCount(1);
+
+    auto signature = v8::Signature::New(isolate, function_template);
     {
-        JS_EXECUTE_RETURN_HANDLE(JS_NOTHING(v8::FunctionTemplate), v8::String, name, ToString(context, "nativeFunction"));
-        JS_EXECUTE_RETURN_HANDLE(JS_NOTHING(v8::FunctionTemplate), v8::FunctionTemplate, callee, v8::FunctionTemplate::New(
+        JS_EXECUTE_RETURN_HANDLE(VOID_NOTHING, v8::String, name, ToString(context, "nativeFunction"));
+        JS_EXECUTE_RETURN_HANDLE(VOID_NOTHING, v8::FunctionTemplate, callee, v8::FunctionTemplate::New(
             isolate,
             NativeFunction,
             v8::Local<v8::Value>(),
@@ -56,11 +53,11 @@ v8::MaybeLocal<v8::FunctionTemplate> Context::Template(v8::Local<v8::Context> co
             v8::ConstructorBehavior::kThrow
         ));
         callee->SetClassName(name);
-        tpl->PrototypeTemplate()->Set(name, callee, JS_PROPERTY_ATTRIBUTE_FROZEN);
+        function_template->PrototypeTemplate()->Set(name, callee, JS_PROPERTY_ATTRIBUTE_FROZEN);
     }
     {
-        JS_EXECUTE_RETURN_HANDLE(JS_NOTHING(v8::FunctionTemplate), v8::String, name, ToString(context, "compileFunction"));
-        JS_EXECUTE_RETURN_HANDLE(JS_NOTHING(v8::FunctionTemplate), v8::FunctionTemplate, callee, v8::FunctionTemplate::New(
+        JS_EXECUTE_RETURN_HANDLE(VOID_NOTHING, v8::String, name, ToString(context, "compileFunction"));
+        JS_EXECUTE_RETURN_HANDLE(VOID_NOTHING, v8::FunctionTemplate, callee, v8::FunctionTemplate::New(
             isolate,
             CompileFunction,
             v8::Local<v8::Value>(),
@@ -69,29 +66,83 @@ v8::MaybeLocal<v8::FunctionTemplate> Context::Template(v8::Local<v8::Context> co
             v8::ConstructorBehavior::kThrow
         ));
         callee->SetClassName(name);
-        tpl->PrototypeTemplate()->Set(name, callee, JS_PROPERTY_ATTRIBUTE_FROZEN);
+        function_template->PrototypeTemplate()->Set(name, callee, JS_PROPERTY_ATTRIBUTE_FROZEN);
+    }
+    {
+        JS_EXECUTE_RETURN_HANDLE(VOID_NOTHING, v8::String, name, ToString(context, "dispose"));
+        JS_EXECUTE_RETURN_HANDLE(VOID_NOTHING, v8::FunctionTemplate, callee, v8::FunctionTemplate::New(
+            isolate,
+            Dispose,
+            v8::Local<v8::Value>(),
+            signature,
+            1,
+            v8::ConstructorBehavior::kThrow
+        ));
+        callee->SetClassName(name);
+        function_template->PrototypeTemplate()->Set(name, callee, JS_PROPERTY_ATTRIBUTE_FROZEN);
+    }
+    {
+        JS_EXECUTE_RETURN_HANDLE(VOID_NOTHING, v8::String, name, ToString(context, "global"));
+        JS_EXECUTE_RETURN_HANDLE(VOID_NOTHING, v8::FunctionTemplate, callee, v8::FunctionTemplate::New(
+            isolate,
+            Dispose,
+            v8::Local<v8::Value>(),
+            signature,
+            1,
+            v8::ConstructorBehavior::kThrow
+        ));
+        callee->SetClassName(name);
+        function_template->InstanceTemplate()->SetAccessor(
+            name,
+            GetGlobal,
+            nullptr,
+            v8::Local<v8::Value>(),
+            v8::AccessControl::ALL_CAN_READ,
+            JS_PROPERTY_ATTRIBUTE_FROZEN,
+            v8::SideEffectType::kHasNoSideEffect
+        );
     }
 
-    template_map.insert(std::make_pair(isolate, v8::Global<v8::FunctionTemplate>(isolate, tpl)));
-    return scope.Escape(tpl);
+    auto it = per_isolate.find(isolate);
+    it->second.class_template.Reset(isolate, function_template);
+
+    return v8::JustVoid();
 }
 
-v8::MaybeLocal<v8::Private> Context::Symbol(v8::Local<v8::Context> context) {
+v8::Maybe<void> Context::init_symbol(v8::Local<v8::Context> context) {
     auto isolate = context->GetIsolate();
-    v8::EscapableHandleScope scope(isolate);
-    std::lock_guard symbol_lock(context_symol_map_mutex);
-    auto location = context_symbol_map.find(isolate);
-    if (location != context_symbol_map.end()) {
-        auto result = location->second.Get(isolate);
-        return scope.Escape(result);
-    }
-    JS_EXECUTE_RETURN_HANDLE(JS_NOTHING(v8::Private), v8::String, name, ToString(context, "Context"));
-    auto result = v8::Private::New(isolate, name);
-    context_symbol_map.insert(std::make_pair(isolate, v8::Global<v8::Private>(isolate, result)));
-    return scope.Escape(result);
+    JS_EXECUTE_RETURN_HANDLE(VOID_NOTHING, v8::String, name, ToString(context, "Context"));
+    auto symbol = v8::Private::New(isolate, name);
+
+    auto it = per_isolate.find(isolate);
+    it->second.class_symbol.Reset(isolate, symbol);
+
+    return v8::JustVoid();
 }
 
-void Context::Constructor(const v8::FunctionCallbackInfo<v8::Value>& info) {
+v8::Local<v8::FunctionTemplate> Context::get_template(v8::Isolate *isolate) {
+    if (auto it = per_isolate.find(isolate); it != per_isolate.end()) {
+        return it->second.class_template.Get(isolate);
+    }
+    return v8::Local<v8::FunctionTemplate>();
+}
+
+v8::Local<v8::Private> Context::get_symbol(v8::Isolate *isolate) {
+    if (auto it = per_isolate.find(isolate); it != per_isolate.end()) {
+        return it->second.class_symbol.Get(isolate);
+    }
+    return v8::Local<v8::Private>();
+}
+
+void Context::throw_illegal_constructor(const v8::FunctionCallbackInfo<v8::Value> &info) {
+    auto isolate = info.GetIsolate();
+    v8::HandleScope scope(isolate);
+    auto context = isolate->GetCurrentContext();
+
+    JS_THROW_ERROR(NOTHING, context, TypeError, "Illegal constructor");
+}
+
+void Context::Constructor(const v8::FunctionCallbackInfo<v8::Value> &info) {
     auto isolate = info.GetIsolate();
     v8::HandleScope scope(isolate);
     auto context = isolate->GetCurrentContext();
@@ -100,7 +151,7 @@ void Context::Constructor(const v8::FunctionCallbackInfo<v8::Value>& info) {
         JS_THROW_ERROR(NOTHING, context, TypeError, "Illegal constructor");
     }
 
-    JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::FunctionTemplate, context_template, Template(context));
+    auto context_template = get_template(isolate);
 
     auto holder = info.This()->FindInstanceInPrototypeChain(context_template);
     if (holder.IsEmpty() || holder->InternalFieldCount() < 1) {
@@ -119,22 +170,22 @@ void Context::Constructor(const v8::FunctionCallbackInfo<v8::Value>& info) {
 
     v8::Local<v8::String> context_name;
     {
-        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::String, js_value, context, options, "name");
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "name");
         if (!js_value->IsNullOrUndefined()) {
             if (!js_value->IsString()) {
                 JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option 'name' to be a string");
             }
-            context_name = js_value;
+            context_name = js_value.As<v8::String>();
         }
     }
 
-    auto global_constructor_template = v8::FunctionTemplate::New(isolate, v8_throw_illegal_constructor, holder);
+    auto global_constructor_template = v8::FunctionTemplate::New(isolate, throw_illegal_constructor, holder);
     if (!context_name.IsEmpty()) {
         global_constructor_template->SetClassName(context_name);
     }
     global_constructor_template->InstanceTemplate()->SetAccessCheckCallback(access_check, holder);
 
-    JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Private, context_symbol, Symbol(context));
+    auto context_symbol = get_symbol(isolate);
 
     auto task_queue = v8::MicrotaskQueue::New(isolate, v8::MicrotasksPolicy::kExplicit);
 
@@ -147,42 +198,85 @@ void Context::Constructor(const v8::FunctionCallbackInfo<v8::Value>& info) {
         task_queue.get()
     );
 
-    {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "global"));
-        JS_EXECUTE_IGNORE(NOTHING, info.This()->DefineOwnProperty(context, name, new_context->Global(), JS_PROPERTY_ATTRIBUTE_CONSTANT));
-    }
-
     new_context->AllowCodeGenerationFromStrings(true);
     new_context->Global()->SetPrivate(context, context_symbol, holder);
     auto wrapper = new Context(context, new_context, std::move(task_queue));
     wrapper->Wrap(holder);
+    if (auto it = per_isolate.find(isolate); it != per_isolate.end()) {
+        std::lock_guard lock(it->second.active_context_lock);
+        it->second.active_context.insert(wrapper);
+    }
 
-    context->GetMicrotaskQueue()->AddMicrotasksCompletedCallback(creation_context_after_microtasks_completed);
+    context->GetMicrotaskQueue()->AddMicrotasksCompletedCallback(
+        reinterpret_cast<v8::MicrotasksCompletedCallbackWithData>(creation_context_after_microtasks_completed),
+        wrapper
+    );
 
     info.GetReturnValue().Set(info.This());
+}
+
+void Context::at_exit(v8::Isolate *isolate) {
+    on_isolate_dispose(isolate);
+}
+
+void Context::on_isolate_dispose(v8::Isolate *isolate) {
+    auto it = per_isolate.find(isolate);
+    if (it == per_isolate.end()) {
+        return;
+    }
+    v8::Isolate::Scope isolate_scope(isolate);
+    v8::Locker isolate_locker(isolate);
+    v8::HandleScope scope(isolate);
+    std::lock_guard lock(it->second.active_context_lock);
+    per_isolate_value &pvi = it->second;
+    while (!pvi.active_context.empty()) {
+        auto wrapper = *(pvi.active_context.begin());
+        wrapper->m_task_queue->RemoveMicrotasksCompletedCallback(
+            reinterpret_cast<v8::MicrotasksCompletedCallbackWithData>(creation_context_after_microtasks_completed),
+            wrapper
+        );
+        delete wrapper;
+    }
+    per_isolate.erase(it);
 }
 
 Context::Context(
     v8::Local<v8::Context> control_context,
     v8::Local<v8::Context> wrap_context,
-    std::unique_ptr<v8::MicrotaskQueue>&& task_queue
+    std::unique_ptr<v8::MicrotaskQueue> &&task_queue
 ) : m_isolate(control_context->GetIsolate()),
 m_control_context(control_context->GetIsolate(), control_context),
 m_context(control_context->GetIsolate(), wrap_context),
 m_task_queue(std::move(task_queue)) {}
 
 Context::~Context() {
-    if (!m_isolate->IsDead()) {
-        auto control_context = m_control_context.Get(m_isolate);
-        auto microtask_queue = control_context->GetMicrotaskQueue();
-        if (microtask_queue != nullptr) {
-            microtask_queue->RemoveMicrotasksCompletedCallback(creation_context_after_microtasks_completed);
-        }
+    auto isolate = m_isolate;
+    v8::Isolate::Scope isolate_scope(isolate);
+    v8::Locker isolate_locker(isolate);
+    v8::HandleScope scope(isolate);
+
+    if (auto it = per_isolate.find(m_isolate); it != per_isolate.end()) {
+        std::lock_guard lock(it->second.active_context_lock);
+        it->second.active_context.erase(this);
+    }
+
+    auto holder = this->persistent().Get(isolate);
+    if (!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1 && holder->GetAlignedPointerFromInternalField(0) == this) {
+        holder->SetAlignedPointerInInternalField(0, nullptr);
     }
 }
 
-void Context::creation_context_after_microtasks_completed(v8::Isolate* isolate, void* ptr_wrapper) {
-    auto wrapper = reinterpret_cast<Context*>(ptr_wrapper);
+void Context::creation_context_after_microtasks_completed(v8::Isolate *isolate, Context *wrapper) {
+    auto it = per_isolate.find(isolate);
+    if (it == per_isolate.end()) {
+        return;
+    }
+    {
+        std::lock_guard lock(it->second.active_context_lock);
+        if (!it->second.active_context.contains(wrapper)) {
+            return;
+        }
+    }
     if (!wrapper->auto_run_microtask_queue) {
         return;
     }
@@ -192,28 +286,25 @@ void Context::creation_context_after_microtasks_completed(v8::Isolate* isolate, 
 
 bool Context::access_check(v8::Local<v8::Context> accessing_context, v8::Local<v8::Object> accessed_object, v8::Local<v8::Value> data) {
     auto isolate = accessing_context->GetIsolate();
-    v8::HandleScope scope(accessing_context->GetIsolate());
-    auto wrapper = node::ObjectWrap::Unwrap<Context>(data.As<v8::Object>());
-    auto control_context = wrapper->m_control_context.Get(isolate);
+    v8::HandleScope scope(isolate);
 
-    // While we cannot compare contexts, since each context Global() is an unique GlobalProxy (over any GlobalObject)
-    // this will return true only when accessing_context and control_context are the same.
-    if (control_context->Global()->SameValue(accessing_context->Global())) {
-        return true;
+    if (auto it = per_isolate.find(isolate); it != per_isolate.end()) {
+        auto wrapper = node::ObjectWrap::Unwrap<Context>(data.As<v8::Object>());
+        {
+            std::lock_guard lock(it->second.active_context_lock);
+            if (!it->second.active_context.contains(wrapper)) {
+                return false;
+            }
+        }
+        auto control_context = wrapper->m_control_context.Get(isolate);
+        if (control_context->Global()->SameValue(accessing_context->Global())) {
+            return true;
+        }
     }
     return false;
 }
 
-// Context has:
-//  - createFunction: creates a function within the contained context, calling a function within the controlling context.
-// This function should pause the protection for user timing.
-//  - compileFunction: creates a function by compiling user code. Return an API wrapper, the wrapper will have:
-// .function: for unprotected access to the function
-// .call: Reflect.call, but protected
-// .apply: Reflect.apply, but protected
-// .construct: Reflect.construct, but protected
-
-void Context::NativeFunction(const v8::FunctionCallbackInfo<v8::Value>& info) {
+void Context::NativeFunction(const v8::FunctionCallbackInfo<v8::Value> &info) {
     auto isolate = info.GetIsolate();
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = isolate->GetCurrentContext();
@@ -236,7 +327,7 @@ void Context::NativeFunction(const v8::FunctionCallbackInfo<v8::Value>& info) {
         }
         callee_wrapped = value;
     }
-    
+
     v8::Local<v8::String> name;
     {
         JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::String, value, context, options, "name");
@@ -279,15 +370,9 @@ void Context::NativeFunction(const v8::FunctionCallbackInfo<v8::Value>& info) {
     }
 
     info.GetReturnValue().Set(callee);
-
-    // TODO: Examine v8::Isolate::AddBeforeCallEnteredCallback and v8::Isolate::AddCallCompletedCallback
-    // While this function receives only isolate, we can check if the current context is a user protected context.
-    // (and particularly does its global have a Private Context::Symbol holding an object, which we wrapped a Context* inside).
-    // If this is the case, while we cannot retrieve the exact function the call is made to, we know it enters a user code,
-    // thus appropriate timers must be executed.
 }
 
-void Context::native_function_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+void Context::native_function_callback(const v8::FunctionCallbackInfo<v8::Value> &info) {
     auto isolate = info.GetIsolate();
     v8::HandleScope scope(isolate);
     auto context = isolate->GetCurrentContext();
@@ -302,10 +387,13 @@ void Context::native_function_callback(const v8::FunctionCallbackInfo<v8::Value>
     auto args_array = v8::Array::New(isolate, args, info.Length());
     v8::Local<v8::Value> call_args[] = { info.This(), args_array, info.NewTarget() };
     v8::Local<v8::Value> receiver;
-    JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Private, wrapper_symbol, Symbol(context));
-    JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, holder_value, context->Global()->GetPrivate(context, wrapper_symbol));
-    if (holder_value->IsObject()) {
-        receiver = holder_value;
+
+    if (auto it = per_isolate.find(isolate); it != per_isolate.end()) {
+        auto context_symbol = it->second.class_symbol.Get(isolate);
+        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, holder_value, context->Global()->GetPrivate(context, context_symbol));
+        if (holder_value->IsObject()) {
+            receiver = holder_value;
+        }
     }
     if (receiver.IsEmpty()) {
         receiver = v8::Undefined(isolate);
@@ -314,10 +402,15 @@ void Context::native_function_callback(const v8::FunctionCallbackInfo<v8::Value>
     info.GetReturnValue().Set(return_value);
 }
 
-void Context::CompileFunction(const v8::FunctionCallbackInfo<v8::Value>& info) {
+void Context::CompileFunction(const v8::FunctionCallbackInfo<v8::Value> &info) {
     auto isolate = info.GetIsolate();
     v8::HandleScope scope(isolate);
     v8::Local<v8::Context> context = isolate->GetCurrentContext();
+
+    auto wrapper = node::ObjectWrap::Unwrap<Context>(info.Holder());
+    if (wrapper == nullptr) {
+        JS_THROW_ERROR(NOTHING, context, ReferenceError, "The context has already been disposed.");
+    }
 
     if (info.Length() < 1) {
         JS_THROW_ERROR(NOTHING, context, TypeError, "Expected 1 argument, got ", info.Length());
@@ -326,29 +419,29 @@ void Context::CompileFunction(const v8::FunctionCallbackInfo<v8::Value>& info) {
         JS_THROW_ERROR(NOTHING, context, TypeError, "Expected argument[0] (options) to be an object.");
     }
     auto options = info[0].As<v8::Object>();
-    auto wrapper = node::ObjectWrap::Unwrap<Context>(info.Holder());
 
     v8::Local<v8::String> name;
     {
-        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::String, value, context, options, "name");
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, value, context, options, "name");
         if (!value->IsNullOrUndefined()) {
             if (!value->IsString()) {
                 JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option 'name' to be a string.");
             }
-            name = value;
+            name = value.As<v8::String>();
         }
     }
 
     std::vector<v8::Local<v8::String>> arg_names;
     arg_names.reserve(8);
     {
-        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Array, js_value, context, options, "arguments");
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "arguments");
         if (!js_value->IsNullOrUndefined()) {
             if (!js_value->IsArray()) {
                 JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option 'arguments' to be an array.");
             }
-            for (decltype(js_value->Length()) i = 0; i < js_value->Length(); ++i) {
-                JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, arg_name_value, js_value->Get(context, i));
+            auto js_array = js_value.As<v8::Array>();
+            for (decltype(js_array->Length()) i = 0; i < js_array->Length(); ++i) {
+                JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, arg_name_value, js_array->Get(context, i));
                 if (!arg_name_value->IsString()) {
                     JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option 'arguments[", i, "]' to be a string.");
                 }
@@ -360,13 +453,14 @@ void Context::CompileFunction(const v8::FunctionCallbackInfo<v8::Value>& info) {
     std::vector<v8::Local<v8::Object>> scopes;
     scopes.reserve(8);
     {
-        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Array, js_value, context, options, "scopes");
+        JS_OBJECT_GET_KEY_HANDLE(NOTHING, v8::Value, js_value, context, options, "scopes");
         if (!js_value->IsNullOrUndefined()) {
             if (!js_value->IsArray()) {
                 JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option 'scopes' to be an array.");
             }
-            for (decltype(js_value->Length()) i = 0; i < js_value->Length(); ++i) {
-                JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, scope_value, js_value->Get(context, i));
+            auto js_array = js_value.As<v8::Array>();
+            for (decltype(js_array->Length()) i = 0; i < js_array->Length(); ++i) {
+                JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, scope_value, js_array->Get(context, i));
                 if (!scope_value->IsObject()) {
                     JS_THROW_ERROR(NOTHING, context, TypeError, "Expected option 'scopes[", i, "]' to be an object.");
                 }
@@ -395,4 +489,43 @@ void Context::CompileFunction(const v8::FunctionCallbackInfo<v8::Value>& info) {
         callee->SetName(name);
     }
     info.GetReturnValue().Set(callee);
+}
+
+void Context::Dispose(const v8::FunctionCallbackInfo<v8::Value> &info) {
+    auto isolate = info.GetIsolate();
+    v8::HandleScope scope(isolate);
+
+    auto wrapper = node::ObjectWrap::Unwrap<Context>(info.Holder());
+    if (wrapper == nullptr) {
+        // Already disposed, do nothing.
+        return;
+    }
+
+    if (auto it = per_isolate.find(isolate); it != per_isolate.end()) {
+        std::lock_guard lock(it->second.active_context_lock);
+        it->second.active_context.erase(wrapper);
+    }
+
+    auto wrapped_context = wrapper->m_context.Get(isolate);
+
+    // Delete the wrapped object
+    delete wrapper;
+
+    v8::Context::Scope wrapped_context_scope(wrapped_context);
+    isolate->ContextDisposedNotification(true);
+}
+
+void Context::GetGlobal(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info) {
+    auto isolate = info.GetIsolate();
+    v8::HandleScope scope(isolate);
+
+    info.GetReturnValue().SetNull();
+    auto wrapper = node::ObjectWrap::Unwrap<Context>(info.Holder());
+    if (wrapper == nullptr) {
+        // Already disposed, do nothing.
+        return;
+    }
+
+    auto wrapped_context = wrapper->m_context.Get(isolate);
+    info.GetReturnValue().Set(wrapped_context->Global());
 }

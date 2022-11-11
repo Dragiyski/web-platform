@@ -50,9 +50,10 @@ NODE_MODULE_INIT() {
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_function_set_name, exports, 2, v8::ConstructorBehavior::kThrow));
         JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
     }
+    JS_EXECUTE_IGNORE(NOTHING, Context::Init(context));
     {
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "Context"));
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::FunctionTemplate, class_template, Context::Template(context));
+        auto class_template = Context::get_template(context->GetIsolate());
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, class_template->GetFunction(context));
         JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
     }

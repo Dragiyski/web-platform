@@ -32,7 +32,6 @@ void js_function_get_name(const v8::FunctionCallbackInfo<v8::Value> &info) {
 
 std::unique_ptr<v8::ScriptCompiler::Source> source_from_object(v8::Local<v8::Context> context, v8::Local<v8::Object> options) {
     auto isolate = context->GetIsolate();
-    v8::HandleScope scope(isolate);
 
     v8::Local<v8::String> source;
     {

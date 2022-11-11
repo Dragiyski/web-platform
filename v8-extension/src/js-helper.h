@@ -88,7 +88,7 @@ for (int i = 0; i < length - offset; ++i) { \
 #define JS_THROW_ERROR(bailout, context, ErrorType, ...) {\
     JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, message, ToDetailString(context, __VA_ARGS__)); \
     v8::Local<v8::Value> error = v8::Exception::ErrorType(message); \
-    scope.GetIsolate()->ThrowException(error); \
+    context->GetIsolate()->ThrowException(error); \
     return bailout; \
 }
 
