@@ -5,11 +5,12 @@
 #include "js-helper.h"
 #include "function.h"
 #include "security-token.h"
-#include "native-function.h"
-#include "compile-function.h"
 #include "context.h"
 
+using namespace dragiyski::node_ext;
+
 NODE_MODULE_INIT() {
+    context_init(context);
     {
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "getSecurityToken"));
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_get_security_token, exports, 1, v8::ConstructorBehavior::kThrow));
@@ -31,16 +32,6 @@ NODE_MODULE_INIT() {
         JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
     }
     {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "createNativeFunction"));
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_create_native_function, exports, 1, v8::ConstructorBehavior::kThrow));
-        JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
-    }
-    {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "compileFunction"));
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_compile_function, exports, 1, v8::ConstructorBehavior::kThrow));
-        JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
-    }
-    {
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "getFunctionName"));
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_function_get_name, exports, 1, v8::ConstructorBehavior::kThrow));
         JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
@@ -48,13 +39,6 @@ NODE_MODULE_INIT() {
     {
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "setFunctionName"));
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, v8::Function::New(context, js_function_set_name, exports, 2, v8::ConstructorBehavior::kThrow));
-        JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
-    }
-    JS_EXECUTE_IGNORE(NOTHING, Context::Init(context));
-    {
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, name, ToString(context, "Context"));
-        auto class_template = Context::get_template(context->GetIsolate());
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Function, value, class_template->GetFunction(context));
         JS_EXECUTE_IGNORE(NOTHING, exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_FROZEN));
     }
 }
