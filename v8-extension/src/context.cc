@@ -264,6 +264,14 @@ Context::~Context() {
     if (!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1 && holder->GetAlignedPointerFromInternalField(0) == this) {
         holder->SetAlignedPointerInInternalField(0, nullptr);
     }
+
+    auto context_symbol = get_symbol(isolate);
+
+    auto wrapped_context = m_context.Get(isolate);
+    auto control_context = m_control_context.Get(isolate);
+    wrapped_context->Global()->DeletePrivate(control_context, context_symbol);
+    v8::Context::Scope wrapped_context_scope(wrapped_context);
+    isolate->ContextDisposedNotification(true);
 }
 
 void Context::creation_context_after_microtasks_completed(v8::Isolate *isolate, Context *wrapper) {
@@ -506,13 +514,8 @@ void Context::Dispose(const v8::FunctionCallbackInfo<v8::Value> &info) {
         it->second.active_context.erase(wrapper);
     }
 
-    auto wrapped_context = wrapper->m_context.Get(isolate);
-
     // Delete the wrapped object
     delete wrapper;
-
-    v8::Context::Scope wrapped_context_scope(wrapped_context);
-    isolate->ContextDisposedNotification(true);
 }
 
 void Context::GetGlobal(v8::Local<v8::String> property, const v8::PropertyCallbackInfo<v8::Value>& info) {
