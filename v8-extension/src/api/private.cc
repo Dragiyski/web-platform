@@ -42,7 +42,6 @@ namespace dragiyski::node_ext {
     void Private::constructor(const v8::FunctionCallbackInfo<v8::Value>& info) {
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
-        auto context = isolate->GetCurrentContext();
 
         auto holder = info.This()->FindInstanceInPrototypeChain(get_template(isolate));
         if (
@@ -51,14 +50,14 @@ namespace dragiyski::node_ext {
             !holder->IsObject() ||
             holder.As<v8::Object>()->InternalFieldCount() < 1
             ) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Illegal constructor");
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal constructor");
         }
 
         v8::Local<v8::String> name;
 
         if (info.Length() >= 1 && !info[0]->IsNullOrUndefined()) {
             if (!info[0]->IsString()) {
-                JS_THROW_ERROR(NOTHING, context, TypeError, "arguments[0] != null: but not a string");
+                JS_THROW_ERROR(NOTHING, isolate, TypeError, "arguments[0] != null: but not a string");
             }
             name = info[0].As<v8::String>();
         }
@@ -83,14 +82,14 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Holder();
         if (holder->InternalFieldCount() < 1) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Illegal invocation");
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal invocation");
         }
 
         if (info.Length() < 1) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Expected ", 1, " arguments, got ", info.Length());
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected ", 1, " arguments, got ", info.Length());
         }
         if (!info[0]->IsObject()) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "arguments[0]: not an object");
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "arguments[0]: not an object");
         }
 
         auto wrapper = node::ObjectWrap::Unwrap<Private>(holder);
@@ -106,14 +105,14 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Holder();
         if (holder->InternalFieldCount() < 1) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Illegal invocation");
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal invocation");
         }
 
         if (info.Length() < 1) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Expected ", 1, " arguments, got ", info.Length());
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected ", 1, " arguments, got ", info.Length());
         }
         if (!info[0]->IsObject()) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "arguments[0]: not an object");
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "arguments[0]: not an object");
         }
 
         auto wrapper = node::ObjectWrap::Unwrap<Private>(holder);
@@ -129,14 +128,14 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Holder();
         if (holder->InternalFieldCount() < 1) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Illegal invocation");
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal invocation");
         }
 
         if (info.Length() < 2) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Expected ", 2, " arguments, got ", info.Length());
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected ", 2, " arguments, got ", info.Length());
         }
         if (!info[0]->IsObject()) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "arguments[0]: not an object");
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "arguments[0]: not an object");
         }
 
         auto wrapper = node::ObjectWrap::Unwrap<Private>(holder);
@@ -152,14 +151,14 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Holder();
         if (holder->InternalFieldCount() < 1) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Illegal invocation");
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal invocation");
         }
 
         if (info.Length() < 1) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "Expected ", 1, " arguments, got ", info.Length());
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected ", 1, " arguments, got ", info.Length());
         }
         if (!info[0]->IsObject()) {
-            JS_THROW_ERROR(NOTHING, context, TypeError, "arguments[0]: not an object");
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "arguments[0]: not an object");
         }
 
         auto wrapper = node::ObjectWrap::Unwrap<Private>(holder);

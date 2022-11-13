@@ -85,11 +85,11 @@ for (int i = 0; i < length - offset; ++i) { \
 
 #define NOTHING
 
-#define JS_THROW_ERROR(bailout, context, ErrorType, ...) {\
-    JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, message, ToDetailString(context, __VA_ARGS__)); \
-    v8::Local<v8::Value> error = v8::Exception::ErrorType(message); \
-    context->GetIsolate()->ThrowException(error); \
-    return bailout; \
+#define JS_THROW_ERROR(bailout, context_or_isolate, ErrorType, ...) {\
+    JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, message, ToErrorMessage(context_or_isolate, __VA_ARGS__));\
+    v8::Local<v8::Value> error = v8::Exception::ErrorType(message);\
+    get_context_or_isolate<decltype(context_or_isolate)>::isolate(context_or_isolate)->ThrowException(error);\
+    return bailout;\
 }
 
 #define JS_PROPERTY_ATTRIBUTE_CONSTANT (static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::ReadOnly))
@@ -263,14 +263,15 @@ namespace {
             if (string_first.IsEmpty()) {
                 return v8::MaybeLocal<v8::String>();
             }
-            v8::MaybeLocal<v8::String> string_second = ForEach<Second, T...>::ToString(context, second);
+            v8::MaybeLocal<v8::String> string_second = ForEach<Second>::ToString(context, second);
             if (string_second.IsEmpty()) {
                 return v8::MaybeLocal<v8::String>();
             }
-            return ForEach<
-                v8::Local<v8::String>,
-                T...
-            >::ToString(context, v8::String::Concat(context->GetIsolate(), string_first.ToLocalChecked(), string_second.ToLocalChecked()), rest...);
+            return ForEach<v8::Local<v8::String>, T...>::ToString(
+                context,
+                v8::String::Concat(context->GetIsolate(), string_first.ToLocalChecked(), string_second.ToLocalChecked()),
+                rest...
+            );
         }
 
         static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, First first, Second second, T ... rest) {
@@ -282,10 +283,27 @@ namespace {
             if (string_second.IsEmpty()) {
                 return v8::MaybeLocal<v8::String>();
             }
-            return ForEach<
-                v8::Local<v8::String>,
-                T...
-            >::ToDetailString(context, v8::String::Concat(context->GetIsolate(), string_first.ToLocalChecked(), string_second.ToLocalChecked()), rest...);
+            return ForEach<v8::Local<v8::String>, T...>::ToDetailString(
+                context,
+                v8::String::Concat(context->GetIsolate(), string_first.ToLocalChecked(), string_second.ToLocalChecked()),
+                rest...
+            );
+        }
+
+        static v8::MaybeLocal<v8::String> ToString(v8::Isolate *isolate, First first, Second second, T ... rest) {
+            v8::MaybeLocal<v8::String> string_first = ForEach<First>::ToString(isolate, first);
+            if (string_first.IsEmpty()) {
+                return v8::MaybeLocal<v8::String>();
+            }
+            v8::MaybeLocal<v8::String> string_second = ForEach<Second>::ToString(isolate, second);
+            if (string_second.IsEmpty()) {
+                return v8::MaybeLocal<v8::String>();
+            }
+            return ForEach<v8::Local<v8::String>, T...>::ToString(
+                isolate,
+                v8::String::Concat(isolate, string_first.ToLocalChecked(), string_second.ToLocalChecked()),
+                rest...
+            );
         }
     };
 
@@ -307,6 +325,15 @@ namespace {
             v8::Local<T> ... rest
         ) {
             return ForEach<v8::String, T...>::ToDetailString(context, v8::String::Concat(context->GetIsolate(), first, second), rest...);
+        }
+
+        static v8::Local<v8::String> ToString(
+            v8::Isolate *isolate,
+            v8::Local<v8::String> first,
+            v8::Local<v8::String> second,
+            v8::Local<T> ... rest
+        ) {
+            return ForEach<v8::String, T...>::ToString(isolate, v8::String::Concat(isolate, first, second), rest...);
         }
 
         static v8::Local<v8::String> Concat(v8::Isolate *isolate, v8::Local<v8::String> first, v8::Local<v8::String> second, v8::Local<T> ... rest) {
@@ -352,6 +379,10 @@ namespace {
             return value;
         }
 
+        static v8::Local<v8::String> ToString(v8::Isolate *isolate, v8::Local<v8::String> value) {
+            return value;
+        }
+
         static v8::Local<v8::String> Concat(v8::Isolate *isolate, v8::Local<v8::String> first) {
             return first;
         }
@@ -379,6 +410,30 @@ namespace {
         }
     };
 
+    template<typename T>
+    struct ForEach<v8::Maybe<T>> {
+        static v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, v8::Maybe<T> value) {
+            if (value.IsNothing()) {
+                return JS_NOTHING(v8::String);
+            }
+            return ForEach<T>::ToString(context, value.FromJust());
+        }
+
+        static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, v8::Maybe<T> value) {
+            if (value.IsNothing()) {
+                return JS_NOTHING(v8::String);
+            }
+            return ForEach<T>::ToDetailString(context, value.FromJust());
+        }
+
+        static v8::MaybeLocal<v8::String> ToString(v8::Isolate *isolate, v8::Maybe<T> value) {
+            if (value.IsNothing()) {
+                return JS_NOTHING(v8::String);
+            }
+            return ForEach<T>::ToString(isolate, value.FromJust());
+        }
+    };
+
     template<>
     struct ForEach<const char *> {
         static v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const char *value) {
@@ -387,6 +442,27 @@ namespace {
 
         static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const char *value) {
             return v8::String::NewFromUtf8(context->GetIsolate(), value);
+        }
+
+        static v8::MaybeLocal<v8::String> ToString(v8::Isolate *isolate, const char *value) {
+            return v8::String::NewFromUtf8(isolate, value);
+        }
+    };
+
+    template<int N>
+    struct ForEach<const char (&)[N]> {
+        static v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const char (&value)[N]) {
+            std::string str(value, N);
+            return v8::String::NewFromUtf8(context->GetIsolate(), str.c_str());
+        }
+
+        static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const char (&value)[N]) {
+            std::string str(value, N);
+            return v8::String::NewFromUtf8(context->GetIsolate(), str.c_str());
+        }
+
+        static v8::Local<v8::String> ToString(v8::Isolate *isolate, const char (&value)[N]) {
+            return v8::String::NewFromUtf8Literal(isolate, value);
         }
     };
 
@@ -399,6 +475,10 @@ namespace {
         static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const char16_t *value) {
             return v8::String::NewFromTwoByte(context->GetIsolate(), reinterpret_cast<const uint16_t *>(value));
         }
+
+        static v8::MaybeLocal<v8::String> ToString(v8::Isolate *isolate, const char16_t *value) {
+            return v8::String::NewFromTwoByte(isolate, reinterpret_cast<const uint16_t *>(value));
+        }
     };
 
     template<>
@@ -409,6 +489,10 @@ namespace {
 
         static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const std::string &value) {
             return v8::String::NewFromUtf8(context->GetIsolate(), value.c_str());
+        }
+
+        static v8::MaybeLocal<v8::String> ToString(v8::Isolate *isolate, const std::string &value) {
+            return v8::String::NewFromUtf8(isolate, value.c_str());
         }
     };
 
@@ -421,43 +505,53 @@ namespace {
         static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const std::u16string &value) {
             return v8::String::NewFromTwoByte(context->GetIsolate(), reinterpret_cast<const uint16_t *>(value.c_str()));
         }
-    };
 
-    template<>
-    struct ForEach<int32_t> {
-        static v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, int32_t value) {
-            v8::Local<v8::Number> v = v8::Integer::New(context->GetIsolate(), value);
-            return v->ToString(context);
-        }
-
-        static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, int32_t value) {
-            v8::Local<v8::Number> v = v8::Integer::New(context->GetIsolate(), value);
-            return v->ToDetailString(context);
+        static v8::MaybeLocal<v8::String> ToString(v8::Isolate *isolate, const std::u16string &value) {
+            return v8::String::NewFromTwoByte(isolate, reinterpret_cast<const uint16_t *>(value.c_str()));
         }
     };
 
-    template<>
-    struct ForEach<uint32_t> {
-        static v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, uint32_t value) {
-            v8::Local<v8::Number> v = v8::Integer::NewFromUnsigned(context->GetIsolate(), value);
-            return v->ToString(context);
-        }
+    #define FOREACH_SPECIALIZATION_LIST(V)\
+        V(int)\
+        V(long)\
+        V(long long)\
+        V(unsigned)\
+        V(unsigned long)\
+        V(unsigned long long)\
+        V(float)\
+        V(double)\
+        V(long double)
 
-        static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, uint32_t value) {
-            v8::Local<v8::Number> v = v8::Integer::NewFromUnsigned(context->GetIsolate(), value);
-            return v->ToDetailString(context);
-        }
+    #define FOREACH_STD_TO_STRING_SPECIALIZATION(Type)\
+    template<>\
+    struct ForEach<Type> {\
+        static v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, Type value) {\
+            auto string = std::to_string(value);\
+            return ForEach<decltype(string)>::ToString(context, string);\
+        }\
+        \
+        static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, Type value) {\
+            auto string = std::to_string(value);\
+            return ForEach<decltype(string)>::ToDetailString(context, string);\
+        }\
+        \
+        static v8::MaybeLocal<v8::String> ToString(v8::Isolate *isolate, Type value) {\
+            auto string = std::to_string(value);\
+            return ForEach<decltype(string)>::ToString(isolate, string);\
+        }\
     };
+
+    FOREACH_SPECIALIZATION_LIST(FOREACH_STD_TO_STRING_SPECIALIZATION)
 
     struct TryCatchPassThrough {
-        v8::TryCatch m_try_catch;
+        v8::TryCatch try_catch;
 
-        explicit TryCatchPassThrough(v8::Isolate *isolate) : m_try_catch(isolate) {}
+        explicit TryCatchPassThrough(v8::Isolate *isolate) : try_catch(isolate) {}
 
         ~TryCatchPassThrough() {
             // Required to report the exception to parent if not caught...
-            m_try_catch.SetVerbose(true);
-            m_try_catch.ReThrow();
+            try_catch.SetVerbose(true);
+            try_catch.ReThrow();
         }
     };
 
@@ -472,13 +566,50 @@ namespace {
     }
 
     template<typename ... T>
+    v8::MaybeLocal<v8::String> ToString(v8::Isolate *isolate, T ... rest) {
+        return ForEach<T...>::ToString(isolate, rest...);
+    }
+
+    template<typename ... T>
+    v8::MaybeLocal<v8::String> ToErrorMessage(v8::Isolate *isolate, T ... rest) {
+        return ToString<T...>(isolate, rest...);
+    }
+
+    template<typename ... T>
+    v8::MaybeLocal<v8::String> ToErrorMessage(v8::Local<v8::Context> context, T ... rest) {
+        return ToDetailString<T...>(context, rest...);
+    }
+
+    template<typename ... T>
     v8::Local<v8::String> StringConcat(v8::Isolate *isolate, T ... rest) {
         return ForEach<T...>::Concat(isolate, rest...);
     }
 
     template<typename R, typename ... A>
-    std::tuple<A...> arguments_of(R (*)(A...)) {
-        return std::tuple<A...>();
-    }
+    struct arguments_of {
+        using type = std::tuple<A...>;
+    };
+
+    template<typename R, typename ... A>
+    struct return_type_of {
+        using type = R;
+    };
+
+    template<typename T>
+    struct get_context_or_isolate {};
+
+    template<>
+    struct get_context_or_isolate<v8::Isolate *> {
+        static constexpr v8::Isolate *isolate(v8::Isolate *isolate) {
+            return isolate;
+        }
+    };
+
+    template<>
+    struct get_context_or_isolate<v8::Local<v8::Context>> {
+        static v8::Isolate *isolate(v8::Local<v8::Context> &context) {
+            return context->GetIsolate();
+        }
+    };
 }
 #endif // JS_HELPER_H
