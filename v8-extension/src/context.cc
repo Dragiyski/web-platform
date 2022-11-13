@@ -99,6 +99,18 @@ namespace dragiyski::node_ext {
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
 
-        
+        auto global_template = v8::FunctionTemplate::New(isolate, throw_illegal_constructor);
+        global_template->InstanceTemplate()->SetInternalFieldCount(1);
+
+        auto microtask_queue = v8::MicrotaskQueue::New(isolate, v8::MicrotasksPolicy::kAuto);
+
+        auto context = v8::Context::New(
+            isolate,
+            nullptr,
+            global_template,
+            v8::MaybeLocal<v8::Value>(),
+            v8::DeserializeEmbedderFieldsCallback(),
+            microtask_queue;
+        );
     }
 }

@@ -7,9 +7,11 @@
             ],
             "sources": [
                 "src/main.cc",
-                "src/context.cc",
                 "src/function.cc",
                 "src/security-token.cc",
+                "src/api/function-template.cc",
+                "src/api/object-template.cc",
+                "src/api/private.cc"
             ]
         }
     ]
