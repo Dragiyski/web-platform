@@ -7,7 +7,7 @@
 
 namespace dragiyski::node_ext {
     class Template : public ObjectWrap {
-        DECLARE_API_WRAPPER_HEAD
+        DECLARE_API_WRAPPER_HEAD(Template)
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
     protected:

@@ -23,9 +23,10 @@ namespace dragiyski::node_ext {
         static v8::Maybe<void> initialize(v8::Isolate *isolate);
         static void uninitialize(v8::Isolate *isolate);
     private:
-        v8::Isolate *_isolate;
+        v8::Persistent<v8::Object> _container;
     public:
-        v8::Isolate *isolate();
+        void Wrap(v8::Local<v8::Object> holder, v8::Local<v8::Object> container);
+        v8::Local<v8::Object> container(v8::Isolate *isolate) const;
     public:
         explicit ObjectWrap(v8::Isolate* isolate);
         virtual ~ObjectWrap();

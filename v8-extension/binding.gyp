@@ -7,6 +7,7 @@
             ],
             "sources": [
                 "src/main.cc",
+                "src/string-table.cc",
                 "src/object.cc",
                 "src/function.cc",
                 "src/security-token.cc",

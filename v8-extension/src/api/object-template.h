@@ -8,7 +8,7 @@
 
 namespace dragiyski::node_ext {
     class ObjectTemplate : public Template {
-        DECLARE_API_WRAPPER_HEAD
+        DECLARE_API_WRAPPER_HEAD(ObjectTemplate)
     public:
         static v8::MaybeLocal<v8::Object> New(v8::Local<v8::Context>, v8::Local<v8::ObjectTemplate>);
     protected:

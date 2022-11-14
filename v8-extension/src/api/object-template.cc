@@ -42,7 +42,7 @@ namespace dragiyski::node_ext {
         auto value = v8::ObjectTemplate::New(isolate, constructor);
 
         auto wrapper = new ObjectTemplate(isolate, value);
-        wrapper->Wrap(holder);
+        wrapper->Wrap(holder, info.This());
 
         info.GetReturnValue().Set(info.This());
     }
@@ -64,8 +64,8 @@ namespace dragiyski::node_ext {
         assert(holder->InternalFieldCount() >= 1);
 
         auto wrapper = new ObjectTemplate(isolate, value);
-        wrapper->Wrap(holder);
+        wrapper->Wrap(holder, holder);
 
-        return scope.Escape(holder);
+        return scope.Escape(wrapper->container(isolate));
     }
 }

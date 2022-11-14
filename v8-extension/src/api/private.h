@@ -8,7 +8,7 @@
 
 namespace dragiyski::node_ext {
     class Private : public ObjectWrap {
-        DECLARE_API_WRAPPER_HEAD
+        DECLARE_API_WRAPPER_HEAD(Private)
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void prototype_get(const v8::FunctionCallbackInfo<v8::Value>& info);

@@ -64,7 +64,7 @@ namespace dragiyski::node_ext {
 
         auto value = v8::Private::New(isolate, name);
         auto wrapper = new Private(isolate, value);
-        wrapper->Wrap(holder);
+        wrapper->Wrap(holder, info.This());
 
         info.GetReturnValue().Set(info.This());
     }
