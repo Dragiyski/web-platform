@@ -7,12 +7,14 @@
             ],
             "sources": [
                 "src/main.cc",
+                "src/object.cc",
                 "src/function.cc",
                 "src/security-token.cc",
                 "src/api/template.cc",
                 "src/api/function-template.cc",
                 "src/api/object-template.cc",
-                "src/api/private.cc"
+                "src/api/private.cc",
+                "src/api/microtask-queue.cc"
             ]
         }
     ]

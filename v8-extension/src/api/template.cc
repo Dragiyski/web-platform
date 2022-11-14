@@ -17,4 +17,6 @@ namespace dragiyski::node_ext {
 
         JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal constructor");
     }
+
+    Template::Template(v8::Isolate *isolate) : ObjectWrap(isolate) {}
 }

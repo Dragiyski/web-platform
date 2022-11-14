@@ -195,6 +195,7 @@ namespace dragiyski::node_ext {
     }
 
     FunctionTemplate::FunctionTemplate(v8::Isolate *isolate, v8::Local<v8::FunctionTemplate> value, v8::Local<v8::Function> callee) :
+        Template(isolate),
         _value(isolate, value),
         _callee(isolate, callee) {}
 

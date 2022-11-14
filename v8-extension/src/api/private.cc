@@ -69,9 +69,11 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().Set(info.This());
     }
 
-    Private::Private(v8::Isolate* isolate, v8::Local<v8::Private> value) : _value(isolate, value) {}
+    Private::Private(v8::Isolate* isolate, v8::Local<v8::Private> value) :
+        ObjectWrap(isolate),
+        _value(isolate, value) {}
 
-    v8::Local<v8::Private> Private::value(v8::Isolate *isolate) {
+    v8::Local<v8::Private> Private::value(v8::Isolate* isolate) {
         return _value.Get(isolate);
     }
 

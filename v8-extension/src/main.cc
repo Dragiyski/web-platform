@@ -8,6 +8,7 @@
 #include "api/function-template.h"
 #include "api/object-template.h"
 #include "api/private.h"
+#include "object.h"
 
 using namespace dragiyski::node_ext;
 
@@ -17,10 +18,7 @@ namespace dragiyski::node_ext {
         FunctionTemplate::uninitialize(isolate);
         Template::uninitialize(isolate);
         Private::uninitialize(isolate);
-    }
-
-    void on_isolate_finished(v8::Isolate *isolate) {
-        at_exit(isolate);
+        ObjectWrap::uninitialize(isolate);
     }
 }
 
@@ -29,24 +27,13 @@ namespace dragiyski::node_ext {
 NODE_MODULE_INIT() {
 #pragma GCC diagnostic pop
     auto isolate = context->GetIsolate();
+    JS_EXECUTE_IGNORE(NOTHING, ObjectWrap::initialize(isolate));
     JS_EXECUTE_IGNORE(NOTHING, Private::initialize(isolate));
     JS_EXECUTE_IGNORE(NOTHING, Template::initialize(context->GetIsolate()));
     JS_EXECUTE_IGNORE(NOTHING, FunctionTemplate::initialize(context->GetIsolate()));
     JS_EXECUTE_IGNORE(NOTHING, ObjectTemplate::initialize(context->GetIsolate()));
     {
-        // Storing values into per_isolate map is really convenient. But since isolate is raw pointer,
-        // those maps does not clean it automatically if the isolate is disposed, allowing
-        // persistent handles to survive as pointer to freed memory after the memory cleanup.
-        // When the application finally exits, those handles are destroyed by freeing already freed memory,
-        // causing segmentation fault. As such, we must ensure any per-Isolate map is empty before
-        // the application exits. Even better, we must not keep the handles when the Isolate is about to be destroyed.
         auto env = node::GetCurrentEnvironment(context);
-        auto platform = node::GetMultiIsolatePlatform(env);
-        // In case this is a temporary isolate where the platform might survive after cleanup.
-        platform->AddIsolateFinishedCallback(isolate, reinterpret_cast<void(*)(void*)>(on_isolate_finished), isolate);
-        // In case main environment exists. This might eventually call the isolate finished callback,
-        // but in this case, but if it is async, it might be called after the Isolate is disposed,
-        // which is what causing the problem in the first place.
         node::AtExit(env, reinterpret_cast<void(*)(void*)>(at_exit), isolate);
     }
     {

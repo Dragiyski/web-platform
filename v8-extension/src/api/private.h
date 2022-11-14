@@ -4,9 +4,10 @@
 #include <node_object_wrap.h>
 #include <v8.h>
 #include "api-helper.h"
+#include "../object.h"
 
 namespace dragiyski::node_ext {
-    class Private : public node::ObjectWrap {
+    class Private : public ObjectWrap {
         DECLARE_API_WRAPPER_HEAD
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);

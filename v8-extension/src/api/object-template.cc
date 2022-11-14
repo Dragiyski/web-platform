@@ -34,7 +34,7 @@ namespace dragiyski::node_ext {
                 if (!info[0]->IsObject()) {
                     JS_THROW_ERROR(NOTHING, isolate, TypeError, "arguments[0]: not an object");
                 }
-                JS_EXECUTE_RETURN(NOTHING, FunctionTemplate *, wrapper, FunctionTemplate::unwrap(isolate, info[0].As<v8::Object>()));
+                JS_EXECUTE_RETURN(NOTHING, FunctionTemplate*, wrapper, FunctionTemplate::unwrap(isolate, info[0].As<v8::Object>()));
                 constructor = wrapper->value(isolate);
             }
         }
@@ -47,9 +47,11 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().Set(info.This());
     }
 
-    ObjectTemplate::ObjectTemplate(v8::Isolate *isolate, v8::Local<v8::ObjectTemplate> value) : _value(isolate, value) {}
+    ObjectTemplate::ObjectTemplate(v8::Isolate* isolate, v8::Local<v8::ObjectTemplate> value) :
+        Template(isolate),
+        _value(isolate, value) {}
 
-    v8::Local<v8::ObjectTemplate> ObjectTemplate::value(v8::Isolate *isolate) {
+    v8::Local<v8::ObjectTemplate> ObjectTemplate::value(v8::Isolate* isolate) {
         return _value.Get(isolate);
     }
 

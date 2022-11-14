@@ -1,7 +1,6 @@
 #ifndef V8EXT_FUNCTION_TEMPLATE_H
 #define V8EXT_FUNCTION_TEMPLATE_H
 
-#include <node_object_wrap.h>
 #include <v8.h>
 #include "api-helper.h"
 #include "template.h"
