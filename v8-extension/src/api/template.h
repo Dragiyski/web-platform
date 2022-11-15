@@ -1,5 +1,5 @@
-#ifndef V8EXT_TEMPLATE_H
-#define V8EXT_TEMPLATE_H
+#ifndef V8EXT_API_TEMPLATE_H
+#define V8EXT_API_TEMPLATE_H
 
 #include "../object.h"
 #include <v8.h>
@@ -24,4 +24,4 @@ namespace dragiyski::node_ext {
     };
 }
 
-#endif /* V8EXT_TEMPLATE_H */
+#endif /* V8EXT_API_TEMPLATE_H */

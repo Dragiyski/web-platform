@@ -76,7 +76,7 @@ namespace dragiyski::node_ext {
     }
 
     v8::Maybe<void> MicrotaskQueue::initialize_template(v8::Isolate *isolate, v8::Local<v8::FunctionTemplate> class_template) {
-        auto signature = v8::Signature::New(isolate, class_template);
+        // auto signature = v8::Signature::New(isolate, class_template);
         return v8::JustVoid();
     }
 

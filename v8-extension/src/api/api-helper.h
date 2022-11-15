@@ -115,10 +115,11 @@
     public:\
         static Maybe<void> initialize(v8::Isolate *isolate);\
         static void uninitialize(v8::Isolate *isolate);\
-        static Maybe<void> initialize_template(v8::Isolate *isolate, v8::Local<v8::FunctionTemplate> class_template);\
+        static Maybe<class_name *> unwrap(v8::Isolate *isolate, v8::Local<v8::Object> object);\
         static Local<v8::FunctionTemplate> get_template(v8::Isolate *isolate);\
         static Local<v8::Private> get_private(v8::Isolate *isolate);\
         static Local<v8::String> get_name(v8::Isolate *isolate);\
-        static Maybe<class_name *> unwrap(v8::Isolate *isolate, v8::Local<v8::Object> object);
+    protected:\
+        static Maybe<void> initialize_template(v8::Isolate *isolate, v8::Local<v8::FunctionTemplate> class_template);
 
 #endif /* V8EXT_API_HELPER_H */

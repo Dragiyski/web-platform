@@ -1,5 +1,5 @@
-#ifndef V8EXT_PRIVATE_H
-#define V8EXT_PRIVATE_H
+#ifndef V8EXT_API_PRIVATE_H
+#define V8EXT_API_PRIVATE_H
 
 #include <node_object_wrap.h>
 #include <v8.h>
@@ -29,4 +29,4 @@ namespace dragiyski::node_ext {
     };
 }
 
-#endif /* V8EXT_PRIVATE_H */
+#endif /* V8EXT_API_PRIVATE_H */

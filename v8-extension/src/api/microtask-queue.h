@@ -1,5 +1,5 @@
-#ifndef V8EXT_MICROTASK_QUEUE_H
-#define V8EXT_MICROTASK_QUEUE_H
+#ifndef V8EXT_API_MICROTASK_QUEUE_H
+#define V8EXT_API_MICROTASK_QUEUE_H
 
 #include <memory>
 #include <v8.h>
@@ -59,4 +59,4 @@ namespace dragiyski::node_ext {
     };
 }
 
-#endif /* V8EXT_MICROTASK_QUEUE_H */
+#endif /* V8EXT_API_MICROTASK_QUEUE_H */

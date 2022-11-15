@@ -1,5 +1,5 @@
-#ifndef V8EXT_FUNCTION_TEMPLATE_H
-#define V8EXT_FUNCTION_TEMPLATE_H
+#ifndef V8EXT_API_FUNCTION_TEMPLATE_H
+#define V8EXT_API_FUNCTION_TEMPLATE_H
 
 #include <v8.h>
 #include "api-helper.h"
@@ -44,4 +44,4 @@ namespace dragiyski::node_ext {
     };
 }
 
-#endif /* V8EXT_FUNCTION_TEMPLATE_H */
+#endif /* V8EXT_API_FUNCTION_TEMPLATE_H */

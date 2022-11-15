@@ -4,7 +4,6 @@
 #include <map>
 #include "../js-helper.h"
 
-#include <functional>
 #include "private.h"
 #include "object-template.h"
 #include "../string-table.h"
@@ -14,8 +13,7 @@ namespace dragiyski::node_ext {
     DECLARE_API_WRAPPER_BODY_MORE(FunctionTemplate, initialize_more, uninitialize_more);
 
     namespace {
-        std::map<v8::Isolate *, v8::Global<v8::FunctionTemplate>> per_isolate_default_function;
-        std::map<v8::Isolate *, std::map<const char *, v8::Global<v8::String>>> per_isolate_names;
+        std::map<v8::Isolate *, Shared<v8::FunctionTemplate>> per_isolate_default_function;
     }
 
     Maybe<void> FunctionTemplate::initialize_more(v8::Isolate *isolate) {
@@ -30,7 +28,6 @@ namespace dragiyski::node_ext {
 
     void FunctionTemplate::uninitialize_more(v8::Isolate *isolate) {
         per_isolate_default_function.erase(isolate);
-        per_isolate_names.erase(isolate);
     }
 
     Maybe<void> FunctionTemplate::initialize_template(v8::Isolate *isolate, Local<v8::FunctionTemplate> class_template) {
