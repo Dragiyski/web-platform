@@ -6,13 +6,13 @@
 
 #define DECLARE_API_WRAPPER_ANONYMOUS_DATA\
     namespace {\
-        std::map<v8::Isolate*, v8::Global<v8::FunctionTemplate>> per_isolate_template;\
-        std::map<v8::Isolate*, v8::Global<v8::Private>> per_isolate_private;\
-        std::map<v8::Isolate*, v8::Global<v8::String>> per_isolate_name;\
+        std::map<v8::Isolate*, Shared<v8::FunctionTemplate>> per_isolate_template;\
+        std::map<v8::Isolate*, Shared<v8::Private>> per_isolate_private;\
+        std::map<v8::Isolate*, Shared<v8::String>> per_isolate_name;\
     }
 
 #define DECLARE_API_WRAPPER_CLASS_INITIALIZE(class_name)\
-    v8::Maybe<void> class_name::initialize(v8::Isolate* isolate) {\
+    Maybe<void> class_name::initialize(v8::Isolate* isolate) {\
         v8::HandleScope scope(isolate);\
         \
         auto name = v8::String::NewFromUtf8Literal(isolate, #class_name);\
@@ -31,7 +31,7 @@
     }
 
 #define DECLARE_API_WRAPPER_CLASS_INITIALIZE_MORE(class_name, more)\
-    v8::Maybe<void> class_name::initialize(v8::Isolate* isolate) {\
+    Maybe<void> class_name::initialize(v8::Isolate* isolate) {\
         v8::HandleScope scope(isolate);\
         \
         auto name = v8::String::NewFromUtf8Literal(isolate, #class_name);\
@@ -66,7 +66,7 @@
     }
 
 #define DECLARE_API_WRAPPER_UNWRAP(class_name)\
-    v8::Maybe<class_name *> class_name::unwrap(v8::Isolate *isolate, v8::Local<v8::Object> object) {\
+    Maybe<class_name *> class_name::unwrap(v8::Isolate *isolate, v8::Local<v8::Object> object) {\
         auto holder = object->FindInstanceInPrototypeChain(get_template(isolate));\
         if (holder.IsEmpty() || !holder->IsObject() || holder->InternalFieldCount() < 1) {\
             JS_THROW_ERROR(CPP_NOTHING(class_name *), isolate, TypeError, "Cannot convert value to '" #class_name "'");\
@@ -79,19 +79,19 @@
     }
 
 #define DECLARE_API_WRAPPER_ANONYMOUS_DATA_ACCESSORS(class_name)\
-    v8::Local<v8::FunctionTemplate> class_name::get_template(v8::Isolate* isolate) {\
+    Local<v8::FunctionTemplate> class_name::get_template(v8::Isolate* isolate) {\
         auto it = per_isolate_template.find(isolate);\
         assert(it != per_isolate_template.end() && "get_template(): not found for this isolate");\
         return it->second.Get(isolate);\
     }\
     \
-    v8::Local<v8::Private> class_name::get_private(v8::Isolate* isolate) {\
+    Local<v8::Private> class_name::get_private(v8::Isolate* isolate) {\
         auto it = per_isolate_private.find(isolate);\
         assert(it != per_isolate_private.end() && "get_private(): not found for this isolate");\
         return it->second.Get(isolate);\
     }\
     \
-    v8::Local<v8::String> class_name::get_name(v8::Isolate* isolate) {\
+    Local<v8::String> class_name::get_name(v8::Isolate* isolate) {\
         auto it = per_isolate_name.find(isolate);\
         assert(it != per_isolate_name.end() && "get_name(): not found for this isolate");\
         return it->second.Get(isolate);\
@@ -113,12 +113,12 @@
 
 #define DECLARE_API_WRAPPER_HEAD(class_name) \
     public:\
-        static v8::Maybe<void> initialize(v8::Isolate *isolate);\
+        static Maybe<void> initialize(v8::Isolate *isolate);\
         static void uninitialize(v8::Isolate *isolate);\
-        static v8::Maybe<void> initialize_template(v8::Isolate *isolate, v8::Local<v8::FunctionTemplate> class_template);\
-        static v8::Local<v8::FunctionTemplate> get_template(v8::Isolate *isolate);\
-        static v8::Local<v8::Private> get_private(v8::Isolate *isolate);\
-        static v8::Local<v8::String> get_name(v8::Isolate *isolate);\
-        static v8::Maybe<class_name *> unwrap(v8::Isolate *isolate, v8::Local<v8::Object> object);
+        static Maybe<void> initialize_template(v8::Isolate *isolate, v8::Local<v8::FunctionTemplate> class_template);\
+        static Local<v8::FunctionTemplate> get_template(v8::Isolate *isolate);\
+        static Local<v8::Private> get_private(v8::Isolate *isolate);\
+        static Local<v8::String> get_name(v8::Isolate *isolate);\
+        static Maybe<class_name *> unwrap(v8::Isolate *isolate, v8::Local<v8::Object> object);
 
 #endif /* V8EXT_API_HELPER_H */

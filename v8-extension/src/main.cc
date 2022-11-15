@@ -9,6 +9,7 @@
 #include "api/object-template.h"
 #include "api/private.h"
 #include "object.h"
+#include "string-table.h"
 
 using namespace dragiyski::node_ext;
 
@@ -19,6 +20,7 @@ namespace dragiyski::node_ext {
         Template::uninitialize(isolate);
         Private::uninitialize(isolate);
         ObjectWrap::uninitialize(isolate);
+        string_map::uninitialize(isolate);
     }
 }
 
@@ -27,6 +29,7 @@ namespace dragiyski::node_ext {
 NODE_MODULE_INIT() {
 #pragma GCC diagnostic pop
     auto isolate = context->GetIsolate();
+    string_map::initialize(isolate);
     JS_EXECUTE_IGNORE(NOTHING, ObjectWrap::initialize(isolate));
     JS_EXECUTE_IGNORE(NOTHING, Private::initialize(isolate));
     JS_EXECUTE_IGNORE(NOTHING, Template::initialize(context->GetIsolate()));

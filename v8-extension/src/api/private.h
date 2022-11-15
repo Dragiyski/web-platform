@@ -7,18 +7,19 @@
 #include "../object.h"
 
 namespace dragiyski::node_ext {
+    using namespace v8_handles;
     class Private : public ObjectWrap {
         DECLARE_API_WRAPPER_HEAD(Private)
     protected:
-        static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
-        static void prototype_get(const v8::FunctionCallbackInfo<v8::Value>& info);
-        static void prototype_set(const v8::FunctionCallbackInfo<v8::Value>& info);
-        static void prototype_has(const v8::FunctionCallbackInfo<v8::Value>& info);
-        static void prototype_delete(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void constructor(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void prototype_get(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void prototype_set(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void prototype_has(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void prototype_delete(const v8::FunctionCallbackInfo<v8::Value> &info);
     protected:
-        v8::Persistent<v8::Private> _value;
+        Shared<v8::Private> _value;
     public:
-        v8::Local<v8::Private> value(v8::Isolate *isolate);
+        Local<v8::Private> value(v8::Isolate *isolate);
     protected:
         Private(v8::Isolate *isolate, v8::Local<v8::Private> value);
         Private(const Private &) = delete;

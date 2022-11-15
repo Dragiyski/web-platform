@@ -4,16 +4,17 @@
 #include "../object.h"
 #include <v8.h>
 #include "api-helper.h"
+#include "../js-helper.h"
 
 namespace dragiyski::node_ext {
+    using namespace v8_handles;
     class Template : public ObjectWrap {
         DECLARE_API_WRAPPER_HEAD(Template)
     protected:
-        static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void constructor(const v8::FunctionCallbackInfo<v8::Value> &info);
     protected:
-        virtual v8::Local<v8::Template> value_upcast(v8::Isolate *isolate) = 0;
     public:
-        inline v8::Local<v8::Template> value(v8::Isolate *isolate) { return value_upcast(isolate); }
+        virtual v8::Local<v8::Template> this_template(v8::Isolate *isolate) = 0;
     protected:
         explicit Template(v8::Isolate *isolate);
         Template(const Template &) = delete;

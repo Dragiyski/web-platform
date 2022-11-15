@@ -5,9 +5,10 @@
 #include "../js-helper.h"
 
 namespace dragiyski::node_ext {
+    using namespace v8_handles;
     DECLARE_API_WRAPPER_BODY(Template);
 
-    v8::Maybe<void> Template::initialize_template(v8::Isolate *isolate, v8::Local<v8::FunctionTemplate> class_template) {
+    Maybe<void> Template::initialize_template(v8::Isolate *isolate, Local<v8::FunctionTemplate> class_template) {
         return v8::JustVoid();
     }
 

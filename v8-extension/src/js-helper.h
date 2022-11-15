@@ -94,6 +94,7 @@ for (int i = 0; i < length - offset; ++i) { \
 
 #define JS_PROPERTY_ATTRIBUTE_CONSTANT (static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::ReadOnly))
 #define JS_PROPERTY_ATTRIBUTE_FROZEN (static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::DontEnum | v8::ReadOnly))
+#define JS_PROPERTY_ATTRIBUTE_SEAL (static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::DontEnum))
 
 #define  JS_DEFINE_UINT_ATTR(bailout, context, target, srcName, srcValue, attributes) \
     { \
@@ -253,8 +254,7 @@ for (int i = 0; i < length - offset; ++i) { \
 
 namespace {
     template<typename ...T>
-    struct ForEach {
-    };
+    struct ForEach {};
 
     template<typename First, typename Second, typename ... T>
     struct ForEach<First, Second, T...> {
@@ -450,18 +450,18 @@ namespace {
     };
 
     template<int N>
-    struct ForEach<const char (&)[N]> {
-        static v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const char (&value)[N]) {
+    struct ForEach<const char(&)[N]> {
+        static v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const char(&value)[N]) {
             std::string str(value, N);
             return v8::String::NewFromUtf8(context->GetIsolate(), str.c_str());
         }
 
-        static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const char (&value)[N]) {
+        static v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const char(&value)[N]) {
             std::string str(value, N);
             return v8::String::NewFromUtf8(context->GetIsolate(), str.c_str());
         }
 
-        static v8::Local<v8::String> ToString(v8::Isolate *isolate, const char (&value)[N]) {
+        static v8::Local<v8::String> ToString(v8::Isolate *isolate, const char(&value)[N]) {
             return v8::String::NewFromUtf8Literal(isolate, value);
         }
     };
@@ -511,7 +511,7 @@ namespace {
         }
     };
 
-    #define FOREACH_SPECIALIZATION_LIST(V)\
+#define FOREACH_SPECIALIZATION_LIST(V)\
         V(int)\
         V(long)\
         V(long long)\
@@ -522,7 +522,7 @@ namespace {
         V(double)\
         V(long double)
 
-    #define FOREACH_STD_TO_STRING_SPECIALIZATION(Type)\
+#define FOREACH_STD_TO_STRING_SPECIALIZATION(Type)\
     template<>\
     struct ForEach<Type> {\
         static v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, Type value) {\
@@ -543,7 +543,7 @@ namespace {
 
     FOREACH_SPECIALIZATION_LIST(FOREACH_STD_TO_STRING_SPECIALIZATION)
 
-    struct TryCatchPassThrough {
+        struct TryCatchPassThrough {
         v8::TryCatch try_catch;
 
         explicit TryCatchPassThrough(v8::Isolate *isolate) : try_catch(isolate) {}
@@ -612,4 +612,23 @@ namespace {
         }
     };
 }
+
+// Persistent handles are subject to change, so here we define copyable and movable handles to use:
+namespace v8_handles {
+    template<typename T>
+    using Shared = v8::CopyablePersistentTraits<T>::CopyablePersistent;
+
+    template<typename T>
+    using Unique = v8::Global<T>;
+
+    // For completeness
+    template<typename T>
+    using Local = v8::Local<T>;
+
+    template<typename T>
+    using MaybeLocal = v8::MaybeLocal<T>;
+
+    template<typename T>
+    using Maybe = v8::Maybe<T>;
+};
 #endif // JS_HELPER_H

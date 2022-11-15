@@ -6,8 +6,10 @@
 #include "js-helper.h"
 
 namespace dragiyski::node_ext {
+    using namespace v8_handles;
+
     namespace {
-        std::map<v8::Isolate*, std::map<const char*, v8::Global<v8::String>>> per_isolate_string_map;
+        std::map<v8::Isolate*, std::map<const char*, Shared<v8::String>>> per_isolate_string_map;
     }
 
     void string_map::initialize(v8::Isolate *isolate) {
@@ -20,7 +22,7 @@ namespace dragiyski::node_ext {
         per_isolate_string_map.erase(isolate);
     }
 
-    v8::MaybeLocal<v8::String> get_string(v8::Isolate* isolate, const char* string, std::size_t length) {
+    v8::MaybeLocal<v8::String> string_map::get_string(v8::Isolate* isolate, const char* string, std::size_t length) {
         auto it = per_isolate_string_map.find(isolate);
         if(it == per_isolate_string_map.end()) {
             return JS_NOTHING(v8::String);

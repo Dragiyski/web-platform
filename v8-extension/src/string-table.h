@@ -5,27 +5,28 @@
 #include "js-helper.h"
 
 namespace dragiyski::node_ext {
+    using namespace v8_handles;
     namespace string_map {
-        void initialize(v8::Isolate* isolate);
-        void uninitialize(v8::Isolate* isolate);
+        void initialize(v8::Isolate *isolate);
+        void uninitialize(v8::Isolate *isolate);
 
-        v8::MaybeLocal<v8::String> get_string(v8::Isolate* isolate, const char* string, std::size_t length);
+        MaybeLocal<v8::String> get_string(v8::Isolate *isolate, const char *string, std::size_t length);
 
         template<std::size_t N>
-        v8::MaybeLocal<v8::String> get_string(v8::Isolate* isolate, const char(&string)[N]) {
-            return get_string(isolate, static_cast<const char*>, N);
+        MaybeLocal<v8::String> get_string(v8::Isolate *isolate, const char(&string)[N]) {
+            return get_string(isolate, static_cast<const char *>(string), N - 1);
         }
     }
 }
 
-#define JS_PROPERTY_NAME(bailout, name, isolate, literal) JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, name, dragiyski::node_ext::string_map::get_string(isolate, name))
+#define JS_PROPERTY_NAME(bailout, name, isolate, literal) JS_EXECUTE_RETURN_HANDLE(bailout, v8::String, name, dragiyski::node_ext::string_map::get_string(isolate, literal))
 
 #define JS_OBJECT_GET_LITERAL_KEY(bailout, variable, context, object, property)\
-    v8::Local<v8::Value> variable;\
+    Local<v8::Value> variable;\
     {\
         auto isolate = (context)->GetIsolate();\
         JS_PROPERTY_NAME(bailout, _0, isolate, property);\
-        JS_EXECUTE_RETURN_HANDLE(bailout, v8::Value, _1, (object)->Get(context, name));\
+        JS_EXECUTE_RETURN_HANDLE(bailout, v8::Value, _1, (object)->Get(context, _0));\
         variable = _1;\
     }
 

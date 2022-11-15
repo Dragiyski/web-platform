@@ -5,6 +5,7 @@
 #include "../js-helper.h"
 
 namespace dragiyski::node_ext {
+    using namespace v8_handles;
     DECLARE_API_WRAPPER_BODY(Private);
 
     v8::Maybe<void> Private::initialize_template(v8::Isolate* isolate, v8::Local<v8::FunctionTemplate> class_template) {
