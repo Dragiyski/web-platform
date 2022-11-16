@@ -18,7 +18,9 @@ namespace dragiyski::node_ext {
         static void uninitialize_more(v8::Isolate* isolate);
     public:
         static v8::Local<v8::Symbol> unhandled_termination(v8::Isolate *isolate);
-        static void secure_invoke(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void secure_user_invoke(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void secure_user_apply(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void secure_user_construct(const v8::FunctionCallbackInfo<v8::Value> &info);
     public:
         std::optional<std::chrono::steady_clock::duration> max_user_time;
         std::optional<std::chrono::steady_clock::duration> max_entry_time;

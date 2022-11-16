@@ -205,7 +205,7 @@ namespace dragiyski::node_ext {
             }
         }
 
-        auto api_callee = is_secure ? UserContext::secure_invoke : invoke;
+        auto api_callee = is_secure ? UserContext::secure_user_invoke : invoke;
         api_callee = callee.IsEmpty() ? default_function : api_callee;
         auto api_template = cache_symbol.IsEmpty() ?
             v8::FunctionTemplate::New(
@@ -240,8 +240,6 @@ namespace dragiyski::node_ext {
             prototype_template,
             callee);
         wrapper->Wrap(holder, info.This());
-
-        JS_EXECUTE_IGNORE(NOTHING, holder->SetPrivate(context, symbol_this(isolate), info.This()));
 
         info.GetReturnValue().Set(info.This());
     }
@@ -285,15 +283,8 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Data().As<v8::Object>();
         assert(!holder.IsEmpty() && holder->IsObject() && holder.As<v8::Object>()->InternalFieldCount() >= 1);
-        v8::Local<v8::Object> this_object = holder;
-        {
-            JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, value_this, holder->GetPrivate(context, FunctionTemplate::symbol_this(isolate)));
-            if (value_this->IsObject()) {
-                this_object = value_this.As<v8::Object>();
-            }
-        }
-
         JS_EXECUTE_RETURN(NOTHING, FunctionTemplate *, wrapper, FunctionTemplate::unwrap(isolate, holder));
+        auto receiver = wrapper->container(isolate);
         auto callee = wrapper->callee(isolate);
         assert(!callee.IsEmpty());
 
@@ -304,7 +295,7 @@ namespace dragiyski::node_ext {
         auto args_array = v8::Array::New(isolate, args_list, info.Length());
 
         Local<v8::Value> args[] = { info.This(), args_array, info.NewTarget() };
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, return_value, callee->Call(context, this_object, 3, args));
+        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, return_value, callee->Call(context, receiver, 3, args));
         info.GetReturnValue().Set(return_value);
     }
 

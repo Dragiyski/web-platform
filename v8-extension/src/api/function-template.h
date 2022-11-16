@@ -7,15 +7,16 @@
 
 namespace dragiyski::node_ext {
     class FunctionTemplate : public Template {
-        DECLARE_API_WRAPPER_HEAD(FunctionTemplate)
+        DECLARE_API_WRAPPER_HEAD(FunctionTemplate);
         static Maybe<void> initialize_more(v8::Isolate *isolate);
         static void uninitialize_more(v8::Isolate *isolate);
-    protected:
-        static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
-        static void invoke(const v8::FunctionCallbackInfo<v8::Value>& info);
-        static void static_open(const v8::FunctionCallbackInfo<v8::Value>& info);
-        static void create(const v8::FunctionCallbackInfo<v8::Value>& info);
+    public:
+        static void invoke(const v8::FunctionCallbackInfo<v8::Value> &info);
         static void default_function(const v8::FunctionCallbackInfo<v8::Value> &info);
+    protected:
+        static void constructor(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void static_open(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void create(const v8::FunctionCallbackInfo<v8::Value> &info);
         static void get_instance_template(const v8::FunctionCallbackInfo<v8::Value> &info);
         static void get_prototype_template(const v8::FunctionCallbackInfo<v8::Value> &info);
     protected:

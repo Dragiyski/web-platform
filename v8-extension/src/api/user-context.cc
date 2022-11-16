@@ -214,6 +214,12 @@ namespace dragiyski::node_ext {
             }
         }
 
+        void TimeSchedule::add_to_timeline(time_point time, UserStackEntry *entry) {
+            std::lock_guard lock(modify_mutex);
+            timeline.insert(std::make_pair(time, entry));
+            task_notifier.notify_all();
+        }
+
         void TimeSchedule::remove_from_timeline(time_point time, UserStackEntry *entry) {
             std::lock_guard lock(modify_mutex);
             for (auto it = timeline.lower_bound(time); it != timeline.upper_bound(time); ++it) {
@@ -221,6 +227,7 @@ namespace dragiyski::node_ext {
                     timeline.erase(it);
                 }
             }
+            task_notifier.notify_all();
         }
 
         void TimeSchedule::thread_function(std::shared_ptr<TimeSchedule> schedule) {
@@ -282,6 +289,22 @@ namespace dragiyski::node_ext {
                 }
             }
         }
+
+        MaybeLocal<v8::Value> call_current_context_reflect_construct(Local<v8::Context> context, int argc, Local<v8::Value> argv[]) {
+            auto isolate = context->GetIsolate();
+            auto global = context->Global();
+            JS_OBJECT_GET_LITERAL_KEY(JS_NOTHING(v8::Value), reflect_value, context, global, "Reflect");
+            if (!reflect_value->IsObject()) {
+                JS_THROW_ERROR(JS_NOTHING(v8::Value), isolate, ReferenceError, "Reflect is not defined");
+            }
+            auto reflect = reflect_value.As<v8::Object>();
+            JS_OBJECT_GET_LITERAL_KEY(JS_NOTHING(v8::Value), reflect_construct_value, context, reflect, "construct");
+            if (!reflect_construct_value->IsFunction()) {
+                JS_THROW_ERROR(JS_NOTHING(v8::Value), isolate, TypeError, "Reflect.construct is not a function");
+            }
+            auto reflect_construct = reflect_construct_value.As<v8::Function>();
+            return reflect_construct->Call(context, reflect, argc, argv);
+        }
     }
 
     UserContext::PreventTerminationScope::PreventTerminationScope(v8::Isolate *isolate) : _isolate(isolate) {
@@ -328,6 +351,31 @@ namespace dragiyski::node_ext {
             JS_PROPERTY_NAME(VOID_NOTHING, name, isolate, "UNHANDLED_TERMINATION");
             class_template->Set(name, unhandled_termination(isolate), JS_PROPERTY_ATTRIBUTE_FROZEN);
         }
+        auto signature = v8::Signature::New(isolate, class_template);
+        {
+            JS_PROPERTY_NAME(VOID_NOTHING, name, isolate, "apply");
+            auto value = v8::FunctionTemplate::New(
+                isolate,
+                secure_user_apply,
+                {},
+                signature,
+                3,
+                v8::ConstructorBehavior::kThrow
+            );
+            class_template->Set(name, value, JS_PROPERTY_ATTRIBUTE_FROZEN);
+        }
+        {
+            JS_PROPERTY_NAME(VOID_NOTHING, name, isolate, "construct");
+            auto value = v8::FunctionTemplate::New(
+                isolate,
+                secure_user_construct,
+                {},
+                signature,
+                2,
+                v8::ConstructorBehavior::kThrow
+            );
+            class_template->Set(name, value, JS_PROPERTY_ATTRIBUTE_FROZEN);
+        }
         return v8::JustVoid();
     }
 
@@ -347,31 +395,32 @@ namespace dragiyski::node_ext {
      * 4a. If the callback return the special symbol "UNHANDLED_TERMINATION" continue the termination on the isolate.
      * 4b. Otherwise, if the callback returns a value, return that value;
      * 4c. Otherwise, if the callback throws, rethrow that exception back;
-     * 
+     *
      * The main process performance should be nearly identical to "invoke";
      * If termination happens, unwinding the stack might require locking the time schedule, which can be slow.
      *
      * @param info
      */
-    void UserContext::secure_invoke(const v8::FunctionCallbackInfo<v8::Value> &info) {
+    void UserContext::secure_user_invoke(const v8::FunctionCallbackInfo<v8::Value> &info) {
         auto isolate = info.GetIsolate();
+
+        // If the protection never ran use code, using the stack is useless, as introduces a lot of work,
+        // when there isn't anything waiting on the timeline.
+        auto schedule = get_time_schedule(isolate);
+        if (schedule->root == nullptr) {
+            FunctionTemplate::invoke(info);
+            return;
+        }
+
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
 
         auto holder = info.Data().As<v8::Object>();
         assert(!holder.IsEmpty() && holder->IsObject() && holder.As<v8::Object>()->InternalFieldCount() >= 1);
 
-        v8::Local<v8::Object> this_object = holder;
-        {
-            JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, value_this, holder->GetPrivate(context, FunctionTemplate::symbol_this(isolate)));
-            if (value_this->IsObject()) {
-                this_object = value_this.As<v8::Object>();
-            }
-        }
-
         JS_EXECUTE_RETURN(NOTHING, FunctionTemplate *, wrapper, FunctionTemplate::unwrap(isolate, holder));
+        auto receiver = wrapper->container(isolate);
         auto callee = wrapper->callee(isolate);
-        assert(!callee.IsEmpty());
 
         Local<v8::Value> args_list[info.Length()];
         for (decltype(info.Length()) i = 0; i < info.Length(); ++i) {
@@ -380,26 +429,23 @@ namespace dragiyski::node_ext {
         auto args_array = v8::Array::New(isolate, args_list, info.Length());
 
         Local<v8::Value> args[] = { info.This(), args_array, info.NewTarget() };
+        // Lock is obtained once termination occurs, and held until the end of this function.
+        // Lock is not obtained during the user call.
         std::unique_lock<decltype(TimeSchedule::modify_mutex)> lock;
-        std::shared_ptr<TimeSchedule> schedule;
         {
-            auto time_schedule = get_time_schedule(isolate);
-            ApiStackEntry stack_entry(time_schedule);
             v8::TryCatch try_catch(isolate);
             try_catch.SetVerbose(false);
             try_catch.SetCaptureMessage(false);
             v8::Isolate::SafeForTerminationScope safe_for_termination(isolate);
-            MaybeLocal<v8::Value> return_value_maybe = callee->Call(context, this_object, 3, args);
+            ApiStackEntry stack_entry(schedule);
+            MaybeLocal<v8::Value> return_value_maybe = callee->Call(context, receiver, 3, args);
             if (!return_value_maybe.IsEmpty()) {
                 info.GetReturnValue().Set(return_value_maybe.ToLocalChecked());
                 return;
             }
             if (try_catch.HasTerminated()) {
                 isolate->CancelTerminateExecution();
-                schedule = get_time_schedule(isolate);
-                if (schedule != nullptr) {
-                    lock = std::unique_lock<decltype(TimeSchedule::modify_mutex)>();
-                }
+                lock = std::unique_lock<decltype(TimeSchedule::modify_mutex)>(schedule->modify_mutex);
                 goto call_termination_callback_label;
             }
             try_catch.ReThrow();
@@ -421,7 +467,7 @@ namespace dragiyski::node_ext {
             }
             v8::Local<v8::Function> termination_callback;
             {
-                auto maybe = this_object->Get(context, property_name);
+                auto maybe = receiver->Get(context, property_name);
                 if (maybe.IsEmpty()) {
                     isolate->TerminateExecution();
                     return;
@@ -437,7 +483,7 @@ namespace dragiyski::node_ext {
             v8::TryCatch try_catch(isolate);
             try_catch.SetVerbose(false);
             try_catch.SetCaptureMessage(false);
-            auto termination_return = termination_callback->Call(context, this_object, 4, args);
+            auto termination_return = termination_callback->Call(context, receiver, 4, args);
             if (!termination_return.IsEmpty()) {
                 auto termination_result = termination_return.ToLocalChecked();
                 auto unhandled = unhandled_termination(isolate);
@@ -447,15 +493,224 @@ namespace dragiyski::node_ext {
                     return;
                 }
                 info.GetReturnValue().Set(termination_return.ToLocalChecked());
-                if (schedule) {
-                    schedule->has_terminated = false;
-                }
+                schedule->has_terminated = false;
                 return;
             }
             if (!try_catch.HasTerminated()) {
-                if (schedule) {
-                    schedule->has_terminated = true;
+                schedule->has_terminated = false;
+            }
+            try_catch.ReThrow();
+        }
+    }
+
+    void UserContext::secure_user_apply(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        auto isolate = info.GetIsolate();
+        auto schedule = get_time_schedule(isolate);
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        // arguments: [target, self, args]
+        if (info.Length() < 3) {
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected ", 3, " arguments, got ", info.Length());
+        }
+        if (!info[0]->IsFunction()) {
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected arguments[0] to be a function.");
+        }
+        if (!info[2]->IsArray()) {
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected arguments[2] to be an array.");
+        }
+
+        auto holder = info.Holder();
+        JS_EXECUTE_RETURN(NOTHING, UserContext *, wrapper, UserContext::unwrap(isolate, holder));
+        auto receiver = wrapper->container(isolate);
+
+        auto callee = info[0].As<v8::Function>();
+        auto args = info[2].As<v8::Array>();
+        Local<v8::Value> args_list[args->Length()];
+        for (decltype(args->Length()) i = 0; i < args->Length(); ++i) {
+            args_list[i] = info[i];
+        }
+
+        std::unique_lock<decltype(TimeSchedule::modify_mutex)> lock;
+        {
+            v8::TryCatch try_catch(isolate);
+            try_catch.SetVerbose(false);
+            try_catch.SetCaptureMessage(false);
+            v8::Isolate::SafeForTerminationScope safe_for_termination(isolate);
+            UserStackEntry stack_entry(schedule, wrapper);
+            auto maybe_return_value = callee->Call(wrapper->value(isolate), info[1], args->Length(), args_list);
+            if (!maybe_return_value.IsEmpty()) {
+                info.GetReturnValue().Set(maybe_return_value.ToLocalChecked());
+                return;
+            }
+            if (try_catch.HasTerminated()) {
+                isolate->CancelTerminateExecution();
+                lock = std::unique_lock<decltype(TimeSchedule::modify_mutex)>(schedule->modify_mutex);
+                goto call_termination_callback_label;
+            }
+            try_catch.ReThrow();
+            return;
+        }
+    call_termination_callback_label:
+        {
+            v8::Local<v8::String> property_name;
+            {
+                auto maybe = string_map::get_string(isolate, "onTerminateExecution");
+                if (maybe.IsEmpty()) {
+                    isolate->TerminateExecution();
+                    return;
                 }
+                property_name = maybe.ToLocalChecked();
+            }
+            v8::Local<v8::Function> termination_callback;
+            {
+                auto maybe = receiver->Get(context, property_name);
+                if (maybe.IsEmpty()) {
+                    isolate->TerminateExecution();
+                    return;
+                }
+                auto value = maybe.ToLocalChecked();
+                if (!value->IsFunction()) {
+                    isolate->TerminateExecution();
+                    return;
+                }
+                termination_callback = value.As<v8::Function>();
+            }
+            auto args_array = v8::Array::New(isolate, args_list, info.Length());
+            Local<v8::Value> args[] = { callee, info.This(), args_array, info.NewTarget() };
+            v8::TryCatch try_catch(isolate);
+            try_catch.SetVerbose(false);
+            try_catch.SetCaptureMessage(false);
+            auto termination_return = termination_callback->Call(context, receiver, 4, args);
+            if (!termination_return.IsEmpty()) {
+                auto termination_result = termination_return.ToLocalChecked();
+                auto unhandled = unhandled_termination(isolate);
+                if (termination_result->SameValue(unhandled)) {
+                    // Continue the termination as requested by the user.
+                    isolate->TerminateExecution();
+                    return;
+                }
+                info.GetReturnValue().Set(termination_return.ToLocalChecked());
+                schedule->has_terminated = false;
+                return;
+            }
+            if (!try_catch.HasTerminated()) {
+                schedule->has_terminated = false;
+            }
+            try_catch.ReThrow();
+        }
+    }
+
+    void UserContext::secure_user_construct(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        auto isolate = info.GetIsolate();
+        auto schedule = get_time_schedule(isolate);
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        // arguments: [target, args, newTarget]
+        if (info.Length() < 2) {
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected ", 2, " arguments, got ", info.Length());
+        }
+        if (!info[0]->IsFunction()) {
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected arguments[0] to be a function.");
+        }
+        if (!info[1]->IsArray()) {
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected arguments[1] to be an array.");
+        }
+        v8::Local<v8::Function> newTarget;
+        if (!info[2]->IsNullOrUndefined()) {
+            if (!info[2]->IsFunction()) {
+                JS_THROW_ERROR(NOTHING, isolate, TypeError, "Expected arguments[2] to be a function.");
+            }
+            newTarget = info[2].As<v8::Function>();
+        }
+
+        auto holder = info.Holder();
+        JS_EXECUTE_RETURN(NOTHING, UserContext *, wrapper, UserContext::unwrap(isolate, holder));
+        auto receiver = wrapper->container(isolate);
+
+        auto callee = info[0].As<v8::Function>();
+        auto args = info[2].As<v8::Array>();
+        Local<v8::Value> args_list[args->Length()];
+        for (decltype(args->Length()) i = 0; i < args->Length(); ++i) {
+            args_list[i] = info[i];
+        }
+
+        std::unique_lock<decltype(TimeSchedule::modify_mutex)> lock;
+        {
+            v8::TryCatch try_catch(isolate);
+            try_catch.SetVerbose(false);
+            try_catch.SetCaptureMessage(false);
+            v8::Isolate::SafeForTerminationScope safe_for_termination(isolate);
+            UserStackEntry stack_entry(schedule, wrapper);
+            MaybeLocal<v8::Value> maybe_return_value;
+            if (newTarget.IsEmpty()) {
+                auto retval = callee->NewInstance(wrapper->value(isolate), args->Length(), args_list);
+                if (!retval.IsEmpty()) {
+                    maybe_return_value = retval.ToLocalChecked().As<v8::Value>();
+                }
+            } else {
+                // The current V8 API provide no
+                Local<v8::Value> reflect_args[] = { callee, info[1], newTarget };
+                maybe_return_value = call_current_context_reflect_construct(context, 3, reflect_args);
+            }
+            if (!maybe_return_value.IsEmpty()) {
+                info.GetReturnValue().Set(maybe_return_value.ToLocalChecked());
+                return;
+            }
+            if (try_catch.HasTerminated()) {
+                isolate->CancelTerminateExecution();
+                lock = std::unique_lock<decltype(TimeSchedule::modify_mutex)>(schedule->modify_mutex);
+                goto call_termination_callback_label;
+            }
+            try_catch.ReThrow();
+            return;
+        }
+    call_termination_callback_label:
+        {
+            v8::Local<v8::String> property_name;
+            {
+                auto maybe = string_map::get_string(isolate, "onTerminateExecution");
+                if (maybe.IsEmpty()) {
+                    isolate->TerminateExecution();
+                    return;
+                }
+                property_name = maybe.ToLocalChecked();
+            }
+            v8::Local<v8::Function> termination_callback;
+            {
+                auto maybe = receiver->Get(context, property_name);
+                if (maybe.IsEmpty()) {
+                    isolate->TerminateExecution();
+                    return;
+                }
+                auto value = maybe.ToLocalChecked();
+                if (!value->IsFunction()) {
+                    isolate->TerminateExecution();
+                    return;
+                }
+                termination_callback = value.As<v8::Function>();
+            }
+            auto args_array = v8::Array::New(isolate, args_list, info.Length());
+            Local<v8::Value> args[] = { callee, info.This(), args_array, info.NewTarget() };
+            v8::TryCatch try_catch(isolate);
+            try_catch.SetVerbose(false);
+            try_catch.SetCaptureMessage(false);
+            auto termination_return = termination_callback->Call(context, receiver, 4, args);
+            if (!termination_return.IsEmpty()) {
+                auto termination_result = termination_return.ToLocalChecked();
+                auto unhandled = unhandled_termination(isolate);
+                if (termination_result->SameValue(unhandled)) {
+                    // Continue the termination as requested by the user.
+                    isolate->TerminateExecution();
+                    return;
+                }
+                info.GetReturnValue().Set(termination_return.ToLocalChecked());
+                schedule->has_terminated = false;
+                return;
+            }
+            if (!try_catch.HasTerminated()) {
+                schedule->has_terminated = false;
             }
             try_catch.ReThrow();
         }
