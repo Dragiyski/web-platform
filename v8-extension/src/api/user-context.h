@@ -16,14 +16,25 @@ namespace dragiyski::node_ext {
     protected:
         static v8::Maybe<void> initialize_more(v8::Isolate* isolate);
         static void uninitialize_more(v8::Isolate* isolate);
-    protected:
+    public:
+        static v8::Local<v8::Symbol> unhandled_termination(v8::Isolate *isolate);
+        static void secure_invoke(const v8::FunctionCallbackInfo<v8::Value> &info);
+    public:
         std::optional<std::chrono::steady_clock::duration> max_user_time;
         std::optional<std::chrono::steady_clock::duration> max_entry_time;
     protected:
+        UserContext(v8::Isolate* isolate, v8::Local<v8::Context> context);
         UserContext(const Context&) = delete;
         UserContext(Context&&) = delete;
     public:
         ~UserContext() override = default;
+
+    class PreventTerminationScope {
+        v8::Isolate *_isolate;
+    public:
+        PreventTerminationScope(v8::Isolate *isolate);
+        ~PreventTerminationScope();
+    };
     };
 }
 

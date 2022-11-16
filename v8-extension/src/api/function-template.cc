@@ -6,6 +6,7 @@
 
 #include "private.h"
 #include "object-template.h"
+#include "user-context.h"
 #include "../string-table.h"
 
 namespace dragiyski::node_ext {
@@ -95,7 +96,7 @@ namespace dragiyski::node_ext {
             holder.IsEmpty() ||
             !holder->IsObject() ||
             holder.As<v8::Object>()->InternalFieldCount() < 1
-        ) {
+            ) {
             JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, message, string_map::get_string(isolate, "Illegal constructor"));
             JS_THROW_ERROR(NOTHING, isolate, TypeError, message);
         }
@@ -107,6 +108,7 @@ namespace dragiyski::node_ext {
         int length = 0;
         auto constructor_behavior = v8::ConstructorBehavior::kAllow;
         auto has_side_effects = v8::SideEffectType::kHasSideEffect;
+        auto is_secure = false;
 
         if (info.Length() >= 1) {
             if (info[0]->IsFunction()) {
@@ -177,6 +179,23 @@ namespace dragiyski::node_ext {
                     cache_symbol = wrapper->value(isolate);
                 }
             }
+            {
+                JS_OBJECT_GET_LITERAL_KEY(NOTHING, js_value, context, options, "cache");
+                if (!js_value->IsNullOrUndefined()) {
+                    if (!js_value->IsObject()) {
+                        JS_THROW_ERROR(NOTHING, isolate, TypeError, "option[cache]: not an object");
+                    }
+                    auto js_object = js_value.As<v8::Object>();
+                    JS_EXECUTE_RETURN(NOTHING, Private *, wrapper, Private::unwrap(isolate, js_object));
+                    cache_symbol = wrapper->value(isolate);
+                }
+            }
+            {
+                JS_OBJECT_GET_LITERAL_KEY(NOTHING, js_value, context, options, "user");
+                if (!js_value->IsNullOrUndefined()) {
+                    is_secure = js_value->BooleanValue(isolate);
+                }
+            }
         }
 
         if (name.IsEmpty() && !callee.IsEmpty()) {
@@ -186,7 +205,8 @@ namespace dragiyski::node_ext {
             }
         }
 
-        auto api_callee = callee.IsEmpty() ? default_function : invoke;
+        auto api_callee = is_secure ? UserContext::secure_invoke : invoke;
+        api_callee = callee.IsEmpty() ? default_function : api_callee;
         auto api_template = cache_symbol.IsEmpty() ?
             v8::FunctionTemplate::New(
                 isolate,
@@ -220,6 +240,8 @@ namespace dragiyski::node_ext {
             prototype_template,
             callee);
         wrapper->Wrap(holder, info.This());
+
+        JS_EXECUTE_IGNORE(NOTHING, holder->SetPrivate(context, symbol_this(isolate), info.This()));
 
         info.GetReturnValue().Set(info.This());
     }
@@ -263,6 +285,13 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Data().As<v8::Object>();
         assert(!holder.IsEmpty() && holder->IsObject() && holder.As<v8::Object>()->InternalFieldCount() >= 1);
+        v8::Local<v8::Object> this_object = holder;
+        {
+            JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, value_this, holder->GetPrivate(context, FunctionTemplate::symbol_this(isolate)));
+            if (value_this->IsObject()) {
+                this_object = value_this.As<v8::Object>();
+            }
+        }
 
         JS_EXECUTE_RETURN(NOTHING, FunctionTemplate *, wrapper, FunctionTemplate::unwrap(isolate, holder));
         auto callee = wrapper->callee(isolate);
@@ -275,7 +304,8 @@ namespace dragiyski::node_ext {
         auto args_array = v8::Array::New(isolate, args_list, info.Length());
 
         Local<v8::Value> args[] = { info.This(), args_array, info.NewTarget() };
-        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, return_value, callee->Call(context, holder, 3, args));
+        JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, return_value, callee->Call(context, this_object, 3, args));
+        info.GetReturnValue().Set(return_value);
     }
 
     void FunctionTemplate::static_open(const v8::FunctionCallbackInfo<v8::Value> &info) {
@@ -289,7 +319,7 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().SetUndefined();
         if (info[0]->IsObject()) {
             auto holder = info[0].As<v8::Object>();
-            JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, open_value, holder->GetPrivate(context, get_private(isolate)));
+            JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Value, open_value, holder->GetPrivate(context, symbol_constructor(isolate)));
             info.GetReturnValue().Set(open_value);
         }
     }
@@ -311,7 +341,7 @@ namespace dragiyski::node_ext {
         // Save the wrapper object reference, as template objects are neither accessible, nor comparable, so they cannot be stored in a map.
         // Thus for any object (including functions) we create, we assign the private to the created object.
         // Note: info.This() bacause it can be user defined extension (through class X extends FunctionTemplate).
-        JS_EXECUTE_IGNORE(NOTHING, callee->SetPrivate(callee_context, get_private(isolate), info.This()));
+        JS_EXECUTE_IGNORE(NOTHING, callee->SetPrivate(callee_context, symbol_constructor(isolate), info.This()));
         info.GetReturnValue().Set(callee);
     }
 

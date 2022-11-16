@@ -8,6 +8,8 @@
 #include "api/function-template.h"
 #include "api/object-template.h"
 #include "api/private.h"
+#include "api/context.h"
+#include "api/user-context.h"
 #include "object.h"
 #include "string-table.h"
 
@@ -15,6 +17,8 @@ using namespace dragiyski::node_ext;
 
 namespace dragiyski::node_ext {
     void at_exit(v8::Isolate *isolate) {
+        UserContext::uninitialize(isolate);
+        Context::uninitialize(isolate);
         ObjectTemplate::uninitialize(isolate);
         FunctionTemplate::uninitialize(isolate);
         Template::uninitialize(isolate);
@@ -35,6 +39,8 @@ NODE_MODULE_INIT() {
     JS_EXECUTE_IGNORE(NOTHING, Template::initialize(context->GetIsolate()));
     JS_EXECUTE_IGNORE(NOTHING, FunctionTemplate::initialize(context->GetIsolate()));
     JS_EXECUTE_IGNORE(NOTHING, ObjectTemplate::initialize(context->GetIsolate()));
+    JS_EXECUTE_IGNORE(NOTHING, Context::initialize(context->GetIsolate()));
+    JS_EXECUTE_IGNORE(NOTHING, UserContext::initialize(context->GetIsolate()));
     {
         auto env = node::GetCurrentEnvironment(context);
         node::AtExit(env, reinterpret_cast<void(*)(void*)>(at_exit), isolate);
