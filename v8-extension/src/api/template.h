@@ -14,7 +14,7 @@ namespace dragiyski::node_ext {
         static void constructor(const v8::FunctionCallbackInfo<v8::Value> &info);
     protected:
     public:
-        virtual v8::Local<v8::Template> this_template(v8::Isolate *isolate) = 0;
+        virtual Local<v8::Template> this_template(v8::Isolate *isolate) = 0;
     protected:
         explicit Template(v8::Isolate *isolate);
         Template(const Template &) = delete;

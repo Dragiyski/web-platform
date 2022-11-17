@@ -10,7 +10,7 @@
 namespace dragiyski::node_ext {
     DECLARE_API_WRAPPER_BODY(ObjectTemplate);
 
-    v8::Maybe<void> ObjectTemplate::initialize_template(v8::Isolate *isolate, v8::Local<v8::FunctionTemplate> class_template) {
+    v8::Maybe<void> ObjectTemplate::initialize_template(v8::Isolate* isolate, Local<v8::FunctionTemplate> class_template) {
         class_template->Inherit(Template::get_template(isolate));
         auto signature = v8::Signature::New(isolate, class_template);
         {
@@ -22,7 +22,7 @@ namespace dragiyski::node_ext {
         return v8::JustVoid();
     }
 
-    void ObjectTemplate::constructor(const v8::FunctionCallbackInfo<v8::Value> &info) {
+    void ObjectTemplate::constructor(const v8::FunctionCallbackInfo<v8::Value>& info) {
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
 
@@ -36,13 +36,13 @@ namespace dragiyski::node_ext {
             JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal constructor");
         }
 
-        v8::Local<v8::FunctionTemplate> constructor;
+        Local<v8::FunctionTemplate> constructor;
         if (info.Length() >= 1) {
             if (!info[0]->IsNullOrUndefined()) {
                 if (!info[0]->IsObject()) {
                     JS_THROW_ERROR(NOTHING, isolate, TypeError, "arguments[0]: not an object");
                 }
-                JS_EXECUTE_RETURN(NOTHING, FunctionTemplate *, wrapper, FunctionTemplate::unwrap(isolate, info[0].As<v8::Object>()));
+                JS_EXECUTE_RETURN(NOTHING, FunctionTemplate*, wrapper, FunctionTemplate::unwrap(isolate, info[0].As<v8::Object>()));
                 constructor = wrapper->this_function_template(isolate);
             }
         }
@@ -55,19 +55,19 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().Set(info.This());
     }
 
-    ObjectTemplate::ObjectTemplate(v8::Isolate *isolate, v8::Local<v8::ObjectTemplate> value) :
+    ObjectTemplate::ObjectTemplate(v8::Isolate* isolate, Local<v8::ObjectTemplate> value) :
         Template(isolate),
         _value(isolate, value) {}
 
-    v8::Local<v8::Template> ObjectTemplate::this_template(v8::Isolate *isolate) {
+    Local<v8::Template> ObjectTemplate::this_template(v8::Isolate* isolate) {
         return _value.Get(isolate);
     }
 
-    v8::Local<v8::ObjectTemplate> ObjectTemplate::this_object_template(v8::Isolate *isolate) {
+    Local<v8::ObjectTemplate> ObjectTemplate::this_object_template(v8::Isolate* isolate) {
         return _value.Get(isolate);
     }
 
-    v8::MaybeLocal<v8::Object> ObjectTemplate::New(v8::Local<v8::Context> context, v8::Local<v8::ObjectTemplate> value) {
+    MaybeLocal<v8::Object> ObjectTemplate::New(Local<v8::Context> context, Local<v8::ObjectTemplate> value) {
         auto isolate = context->GetIsolate();
         v8::EscapableHandleScope scope(isolate);
 
@@ -81,7 +81,7 @@ namespace dragiyski::node_ext {
         return scope.Escape(wrapper->container(isolate));
     }
 
-    void ObjectTemplate::create(const v8::FunctionCallbackInfo<v8::Value> &info) {
+    void ObjectTemplate::create(const v8::FunctionCallbackInfo<v8::Value>& info) {
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
@@ -95,9 +95,9 @@ namespace dragiyski::node_ext {
             JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal invocation");
         }
 
-        JS_EXECUTE_RETURN(NOTHING, ObjectTemplate *, wrapper, ObjectTemplate::unwrap(isolate, holder));
+        JS_EXECUTE_RETURN(NOTHING, ObjectTemplate*, wrapper, ObjectTemplate::unwrap(isolate, holder));
         auto object_template = wrapper->this_object_template(isolate);
-        
+
         // TODO: Handle arguments[0] as potential wrapper of v8::Context
         JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::Object, result, object_template->NewInstance(context));
         info.GetReturnValue().Set(result);

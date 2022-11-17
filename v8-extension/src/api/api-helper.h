@@ -64,7 +64,7 @@
     }
 
 #define DECLARE_API_WRAPPER_UNWRAP(class_name)\
-    Maybe<class_name *> class_name::unwrap(v8::Isolate *isolate, v8::Local<v8::Object> object) {\
+    Maybe<class_name *> class_name::unwrap(v8::Isolate *isolate, Local<v8::Object> object) {\
         auto holder = object->FindInstanceInPrototypeChain(get_template(isolate));\
         if (holder.IsEmpty() || !holder->IsObject() || holder->InternalFieldCount() < 1) {\
             JS_THROW_ERROR(CPP_NOTHING(class_name *), isolate, TypeError, "Cannot convert value to '" #class_name "'");\
@@ -116,12 +116,12 @@
     public:\
         static Maybe<void> initialize(v8::Isolate *isolate);\
         static void uninitialize(v8::Isolate *isolate);\
-        static Maybe<class_name *> unwrap(v8::Isolate *isolate, v8::Local<v8::Object> object);\
+        static Maybe<class_name *> unwrap(v8::Isolate *isolate, Local<v8::Object> object);\
         static Local<v8::FunctionTemplate> get_template(v8::Isolate *isolate);\
         static Local<v8::Private> symbol_constructor(v8::Isolate *isolate);\
         static Local<v8::Private> symbol_this(v8::Isolate *isolate);\
         static Local<v8::String> get_name(v8::Isolate *isolate);\
     protected:\
-        static Maybe<void> initialize_template(v8::Isolate *isolate, v8::Local<v8::FunctionTemplate> class_template);
+        static Maybe<void> initialize_template(v8::Isolate *isolate, Local<v8::FunctionTemplate> class_template);
 
 #endif /* V8EXT_API_HELPER_H */

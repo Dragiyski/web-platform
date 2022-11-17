@@ -60,7 +60,7 @@ namespace dragiyski::node_ext {
         }
     }
 
-    v8::Maybe<void> MicrotaskQueue::initialize(v8::Local<v8::Context> context) {
+    v8::Maybe<void> MicrotaskQueue::initialize(Local<v8::Context> context) {
         auto isolate = context->GetIsolate();
         JS_EXECUTE_IGNORE(VOID_NOTHING, initialize(isolate));
         auto insert = per_isolate_microtask_listener_set.emplace(std::piecewise_construct, std::forward_as_tuple(isolate), std::forward_as_tuple());
@@ -75,7 +75,7 @@ namespace dragiyski::node_ext {
         return v8::JustVoid();
     }
 
-    v8::Maybe<void> MicrotaskQueue::initialize_template(v8::Isolate *isolate, v8::Local<v8::FunctionTemplate> class_template) {
+    v8::Maybe<void> MicrotaskQueue::initialize_template(v8::Isolate *isolate, Local<v8::FunctionTemplate> class_template) {
         // auto signature = v8::Signature::New(isolate, class_template);
         return v8::JustVoid();
     }

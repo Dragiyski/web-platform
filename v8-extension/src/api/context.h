@@ -10,15 +10,19 @@ namespace dragiyski::node_ext {
     using namespace v8_handles;
     class Context : public ObjectWrap {
         DECLARE_API_WRAPPER_HEAD(Context);
-        static v8::Maybe<void> initialize(v8::Local<v8::Context> context);
+        static Maybe<void> initialize(Local<v8::Context> context);
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void for_object(const v8::FunctionCallbackInfo<v8::Value>& info);
+    public:
+        static MaybeLocal<v8::Context> GetCreationContext(Local<v8::Context> context, Local<v8::Object> object);
+        static MaybeLocal<v8::Object> ForObject(Local<v8::Context> context, Local<v8::Object> object);
     protected:
         Shared<v8::Context> _value;
     public:
-        v8::Local<v8::Context> value(v8::Isolate* isolate) const;
+        Local<v8::Context> value(v8::Isolate* isolate) const;
     protected:
-        Context(v8::Isolate* isolate, v8::Local<v8::Context> context);
+        Context(v8::Isolate* isolate, Local<v8::Context> context);
         Context(const Context&) = delete;
         Context(Context&&) = delete;
     public:

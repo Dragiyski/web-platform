@@ -12,7 +12,7 @@ namespace dragiyski::node_ext {
         DECLARE_API_WRAPPER_HEAD(MicrotaskQueue)
         static v8::Maybe<void> initialize_more(v8::Isolate *isolate);
         static void uninitialize_more(v8::Isolate *isolate);
-        static v8::Maybe<void> initialize(v8::Local<v8::Context> context);
+        static v8::Maybe<void> initialize(Local<v8::Context> context);
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void static_get_from_current_context(const v8::FunctionCallbackInfo<v8::Value>& info);

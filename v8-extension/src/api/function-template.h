@@ -34,8 +34,8 @@ namespace dragiyski::node_ext {
         FunctionTemplate(
             v8::Isolate *isolate,
             Local<v8::FunctionTemplate> api_template,
-            v8::Local<v8::Object> instance_template,
-            v8::Local<v8::Object> prototype_template,
+            Local<v8::Object> instance_template,
+            Local<v8::Object> prototype_template,
             Local<v8::Function> callee
         );
         FunctionTemplate(const FunctionTemplate &) = delete;

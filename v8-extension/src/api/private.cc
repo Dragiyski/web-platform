@@ -8,31 +8,31 @@ namespace dragiyski::node_ext {
     using namespace v8_handles;
     DECLARE_API_WRAPPER_BODY(Private);
 
-    v8::Maybe<void> Private::initialize_template(v8::Isolate* isolate, v8::Local<v8::FunctionTemplate> class_template) {
+    v8::Maybe<void> Private::initialize_template(v8::Isolate* isolate, Local<v8::FunctionTemplate> class_template) {
         auto prototype_template = class_template->PrototypeTemplate();
 
         auto signature = v8::Signature::New(isolate, class_template);
         {
             auto name = v8::String::NewFromUtf8Literal(isolate, "has");
-            auto func = v8::FunctionTemplate::New(isolate, prototype_has, v8::Local<v8::Value>(), signature, 1, v8::ConstructorBehavior::kThrow);
+            auto func = v8::FunctionTemplate::New(isolate, prototype_has, Local<v8::Value>(), signature, 1, v8::ConstructorBehavior::kThrow);
             func->SetClassName(name);
             prototype_template->Set(name, func, JS_PROPERTY_ATTRIBUTE_FROZEN);
         }
         {
             auto name = v8::String::NewFromUtf8Literal(isolate, "get");
-            auto func = v8::FunctionTemplate::New(isolate, prototype_get, v8::Local<v8::Value>(), signature, 1, v8::ConstructorBehavior::kThrow);
+            auto func = v8::FunctionTemplate::New(isolate, prototype_get, Local<v8::Value>(), signature, 1, v8::ConstructorBehavior::kThrow);
             func->SetClassName(name);
             prototype_template->Set(name, func, JS_PROPERTY_ATTRIBUTE_FROZEN);
         }
         {
             auto name = v8::String::NewFromUtf8Literal(isolate, "set");
-            auto func = v8::FunctionTemplate::New(isolate, prototype_set, v8::Local<v8::Value>(), signature, 2, v8::ConstructorBehavior::kThrow);
+            auto func = v8::FunctionTemplate::New(isolate, prototype_set, Local<v8::Value>(), signature, 2, v8::ConstructorBehavior::kThrow);
             func->SetClassName(name);
             prototype_template->Set(name, func, JS_PROPERTY_ATTRIBUTE_FROZEN);
         }
         {
             auto name = v8::String::NewFromUtf8Literal(isolate, "delete");
-            auto func = v8::FunctionTemplate::New(isolate, prototype_delete, v8::Local<v8::Value>(), signature, 1, v8::ConstructorBehavior::kThrow);
+            auto func = v8::FunctionTemplate::New(isolate, prototype_delete, Local<v8::Value>(), signature, 1, v8::ConstructorBehavior::kThrow);
             func->SetClassName(name);
             prototype_template->Set(name, func, JS_PROPERTY_ATTRIBUTE_FROZEN);
         }
@@ -54,7 +54,7 @@ namespace dragiyski::node_ext {
             JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal constructor");
         }
 
-        v8::Local<v8::String> name;
+        Local<v8::String> name;
 
         if (info.Length() >= 1 && !info[0]->IsNullOrUndefined()) {
             if (!info[0]->IsString()) {
@@ -70,11 +70,11 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().Set(info.This());
     }
 
-    Private::Private(v8::Isolate* isolate, v8::Local<v8::Private> value) :
+    Private::Private(v8::Isolate* isolate, Local<v8::Private> value) :
         ObjectWrap(isolate),
         _value(isolate, value) {}
 
-    v8::Local<v8::Private> Private::value(v8::Isolate* isolate) {
+    Local<v8::Private> Private::value(v8::Isolate* isolate) {
         return _value.Get(isolate);
     }
 
