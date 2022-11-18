@@ -23,6 +23,11 @@ namespace dragiyski::node_ext {
         static void secure_user_apply(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void secure_user_construct(const v8::FunctionCallbackInfo<v8::Value>& info);
     protected:
+        static void get_max_user_time(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void set_max_user_time(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void get_max_entry_time(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void set_max_entry_time(const v8::FunctionCallbackInfo<v8::Value>& info);
+    protected:
         std::shared_ptr<v8::MicrotaskQueue> _microtask_queue;
     public:
         std::optional<std::chrono::steady_clock::duration> max_user_time;

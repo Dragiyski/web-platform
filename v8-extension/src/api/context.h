@@ -14,6 +14,7 @@ namespace dragiyski::node_ext {
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void for_object(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void compile_function(const v8::FunctionCallbackInfo<v8::Value>& info);
     public:
         static MaybeLocal<v8::Context> GetCreationContext(Local<v8::Context> context, Local<v8::Object> object);
         static MaybeLocal<v8::Object> ForObject(Local<v8::Context> context, Local<v8::Object> object);

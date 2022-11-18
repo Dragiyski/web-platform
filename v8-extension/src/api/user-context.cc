@@ -77,6 +77,64 @@ namespace dragiyski::node_ext {
             );
             class_template->PrototypeTemplate()->Set(name, value, JS_PROPERTY_ATTRIBUTE_FROZEN);
         }
+        {
+            JS_PROPERTY_NAME(VOID_NOTHING, name, isolate, "maxEntryTime");
+            auto getter = v8::FunctionTemplate::New(
+                isolate,
+                get_max_entry_time,
+                {},
+                signature,
+                0,
+                v8::ConstructorBehavior::kThrow,
+                v8::SideEffectType::kHasNoSideEffect
+            );
+            getter->SetClassName(name);
+            auto setter = v8::FunctionTemplate::New(
+                isolate,
+                set_max_entry_time,
+                {},
+                signature,
+                0,
+                v8::ConstructorBehavior::kThrow,
+                v8::SideEffectType::kHasSideEffectToReceiver
+            );
+            setter->SetClassName(name);
+            class_template->PrototypeTemplate()->SetAccessorProperty(
+                name,
+                getter,
+                setter,
+                JS_PROPERTY_ATTRIBUTE_SEAL
+            );
+        }
+        {
+            JS_PROPERTY_NAME(VOID_NOTHING, name, isolate, "maxUserTime");
+            auto getter = v8::FunctionTemplate::New(
+                isolate,
+                get_max_user_time,
+                {},
+                signature,
+                0,
+                v8::ConstructorBehavior::kThrow,
+                v8::SideEffectType::kHasNoSideEffect
+            );
+            getter->SetClassName(name);
+            auto setter = v8::FunctionTemplate::New(
+                isolate,
+                set_max_user_time,
+                {},
+                signature,
+                0,
+                v8::ConstructorBehavior::kThrow,
+                v8::SideEffectType::kHasSideEffectToReceiver
+            );
+            setter->SetClassName(name);
+            class_template->PrototypeTemplate()->SetAccessorProperty(
+                name,
+                getter,
+                setter,
+                JS_PROPERTY_ATTRIBUTE_SEAL
+            );
+        }
         return v8::JustVoid();
     }
 

@@ -97,8 +97,7 @@ namespace dragiyski::node_ext {
             !holder->IsObject() ||
             holder.As<v8::Object>()->InternalFieldCount() < 1
             ) {
-            JS_EXECUTE_RETURN_HANDLE(NOTHING, v8::String, message, string_map::get_string(isolate, "Illegal constructor"));
-            JS_THROW_ERROR(NOTHING, isolate, TypeError, message);
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal constructor");
         }
 
         Local<v8::Function> callee;
@@ -126,7 +125,7 @@ namespace dragiyski::node_ext {
                 JS_OBJECT_GET_LITERAL_KEY(NOTHING, js_value, context, options, "function");
                 if (!js_value->IsNullOrUndefined()) {
                     if (!js_value->IsFunction()) {
-                        JS_THROW_ERROR(NOTHING, isolate, TypeError, "option[function]: not a function");
+                        JS_THROW_ERROR(NOTHING, isolate, TypeError, "option `function`: not a function");
                     }
                     callee = js_value.As<v8::Function>();
                 }
@@ -135,7 +134,7 @@ namespace dragiyski::node_ext {
                 JS_OBJECT_GET_LITERAL_KEY(NOTHING, js_value, context, options, "name");
                 if (!js_value->IsNullOrUndefined()) {
                     if (!js_value->IsString()) {
-                        JS_THROW_ERROR(NOTHING, isolate, TypeError, "option[function]: not a function");
+                        JS_THROW_ERROR(NOTHING, isolate, TypeError, "option `name`: not a string");
                     }
                     name = js_value.As<v8::String>();
                 }
@@ -172,18 +171,7 @@ namespace dragiyski::node_ext {
                 JS_OBJECT_GET_LITERAL_KEY(NOTHING, js_value, context, options, "cache");
                 if (!js_value->IsNullOrUndefined()) {
                     if (!js_value->IsObject()) {
-                        JS_THROW_ERROR(NOTHING, isolate, TypeError, "option[cache]: not an object");
-                    }
-                    auto js_object = js_value.As<v8::Object>();
-                    JS_EXECUTE_RETURN(NOTHING, Private *, wrapper, Private::unwrap(isolate, js_object));
-                    cache_symbol = wrapper->value(isolate);
-                }
-            }
-            {
-                JS_OBJECT_GET_LITERAL_KEY(NOTHING, js_value, context, options, "cache");
-                if (!js_value->IsNullOrUndefined()) {
-                    if (!js_value->IsObject()) {
-                        JS_THROW_ERROR(NOTHING, isolate, TypeError, "option[cache]: not an object");
+                        JS_THROW_ERROR(NOTHING, isolate, TypeError, "option `cache`: not an object");
                     }
                     auto js_object = js_value.As<v8::Object>();
                     JS_EXECUTE_RETURN(NOTHING, Private *, wrapper, Private::unwrap(isolate, js_object));

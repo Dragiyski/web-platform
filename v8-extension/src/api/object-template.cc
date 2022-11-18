@@ -26,6 +26,10 @@ namespace dragiyski::node_ext {
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
 
+        if (!info.IsConstructCall()) {
+            JS_THROW_ERROR(NOTHING, isolate, TypeError, "Illegal constructor");
+        }
+
         auto holder = info.This()->FindInstanceInPrototypeChain(get_template(isolate));
         if (
             !info.IsConstructCall() ||
