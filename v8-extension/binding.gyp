@@ -13,7 +13,8 @@
             ],
             "sources": [
                 "src/main.cxx",
-                "src/js-string-table.cxx"
+                "src/js-string-table.cxx",
+                "src/wrapper.cxx",
             ]
         }
     ],

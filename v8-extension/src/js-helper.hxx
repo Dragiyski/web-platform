@@ -63,11 +63,11 @@
 #define JS_EXPRESSION_RETURN(variable, code)\
     typename js::maybe<decltype(code)>::type variable;\
     {\
-        auto maybe = code;\
-        if (!js::maybe<decltype(maybe)>::is_valid(maybe)) {\
+        auto _0 = code;\
+        if (!js::maybe<decltype(_0)>::is_valid(_0)) {\
             return __function_return_type__();\
         }\
-        variable = js::maybe<decltype(maybe)>::value(maybe);\
+        variable = js::maybe<decltype(_0)>::value(_0);\
     }
 
   /**
@@ -77,8 +77,8 @@
    */
 #define JS_EXPRESSION_IGNORE(code)\
     {\
-        auto maybe = code;\
-        if (!js::maybe<decltype(maybe)>::is_valid(maybe)) {\
+        auto _0 = code;\
+        if (!js::maybe<decltype(_0)>::is_valid(_0)) {\
             return __function_return_type__();\
         }\
     }
@@ -633,15 +633,33 @@ namespace js {
     };
 
     template<typename T, typename ... S>
+    struct error_message_impl;
+
+    template<typename ... S>
+    struct error_message_impl<v8::Local<v8::Context>, S...> {
+        static inline v8::MaybeLocal<v8::String> create(v8::Local<v8::Context> context, const S &... string_list) {
+            return String::ToDetailString(context, string_list...);
+        }
+    };
+
+    template<typename ... S>
+    struct error_message_impl<v8::Isolate *, S...> {
+        static inline v8::MaybeLocal<v8::String> create(v8::Isolate *isolate, const S &... string_list) {
+            return String::Create(isolate, string_list...);
+        }
+    };
+
+    template<typename T, typename ... S>
     v8::MaybeLocal<v8::String> ErrorMessage(T isolate_or_context_value, const S &... string_list) {
-        return String::Create(isolate_or_context_value, string_list...);
+        return error_message_impl<T, S...>::create(isolate_or_context_value, string_list...);
     }
 
 #define JS_THROW_ERROR(Type, isolate_or_context_value, ...)\
         {\
-            JS_EXPRESSION_RETURN(message, ::js::ErrorMessage((isolate_or_context_value), __VA_ARGS__));\
-            auto error = v8::Exception::Type(message);\
-            ::js::isolate_or_context(isolate_or_context_value)->ThrowException(error);\
+            JS_EXPRESSION_RETURN(_0, ::js::ErrorMessage((isolate_or_context_value), __VA_ARGS__));\
+            auto _1 = v8::Exception::Type(_0);\
+            ::js::isolate_or_context(isolate_or_context_value)->ThrowException(_1);\
+            return __function_return_type__();\
         }
 
 #define JS_PROPERTY_ATTRIBUTE_CONST (static_cast<v8::PropertyAttribute>(v8::PropertyAttribute::DontDelete | v8::PropertyAttribute::ReadOnly))
@@ -652,4 +670,4 @@ namespace js {
 #define JS_PROPERTY_ATTRIBUTE_DEFAULT (static_cast<v8::PropertyAttribute>(v8::PropertyAttribute::None))
 }
 
-#endif /* V8_HELPER_HXX */
+#endif /* JS_HELPER_HXX */
