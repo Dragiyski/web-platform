@@ -110,14 +110,16 @@ namespace dragiyski::node_ext {
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
 
+        if (!info.IsConstructCall()) {
+            auto message = StringTable::Get(isolate, "Illegal constructor");
+            JS_THROW_ERROR(TypeError, isolate, message);
+        }
+
         auto self = info.This();
         auto self_template = get_class_template(isolate);
 
         info.GetReturnValue().Set(self);
         JS_EXPRESSION_RETURN(holder, get_holder(isolate, self, self_template));
-        if (holder->GetAlignedPointerFromInternalField(0) != nullptr) {
-            return;
-        }
 
         v8::Local<v8::String> name;
         if (!info[0]->IsNullOrUndefined()) {
@@ -128,7 +130,7 @@ namespace dragiyski::node_ext {
         }
 
         auto value = v8::Private::New(isolate, name);
-        auto wrapper = std::make_shared<Private>(isolate, value);
+        auto wrapper = new Private(isolate, value);
         wrapper->Wrap(isolate, holder);
     };
 

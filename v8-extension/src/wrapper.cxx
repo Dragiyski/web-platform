@@ -2,11 +2,12 @@
 
 #include <cassert>
 #include <map>
+#include <set>
 #include "js-string-table.hxx"
 
 namespace js {
     namespace {
-        std::map<v8::Isolate *, std::map<Wrapper *, std::shared_ptr<Wrapper>>> per_isolate_object_wrapper;
+        std::map<v8::Isolate *, std::set<Wrapper *>> per_isolate_object_wrapper;
     }
 
     void Wrapper::initialize(v8::Isolate *isolate) {
@@ -19,6 +20,9 @@ namespace js {
     }
 
     void Wrapper::uninitialize(v8::Isolate *isolate) {
+        for (auto *wrapper : per_isolate_object_wrapper[isolate]) {
+            delete wrapper;
+        }
         per_isolate_object_wrapper.erase(isolate);
     }
 
@@ -38,16 +42,13 @@ namespace js {
     }
 
     void Wrapper::Wrap(v8::Isolate *isolate, v8::Local<v8::Object> holder) {
-        assert(!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1 && holder->GetAlignedPointerFromInternalField(0) == nullptr);
+        assert(!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1);
+        assert(per_isolate_object_wrapper.contains(isolate));
+        assert(!per_isolate_object_wrapper[isolate].contains(this));
+        per_isolate_object_wrapper[isolate].insert(this);
         holder->SetAlignedPointerInInternalField(0, this);
         _holder.Reset(isolate, holder);
         MakeWeak();
-    }
-
-    std::shared_ptr<Wrapper> Wrapper::find_shared_for_this(v8::Isolate *isolate, Wrapper *wrapper) {
-        assert(per_isolate_object_wrapper.contains(isolate));
-        assert(per_isolate_object_wrapper[isolate].contains(wrapper));
-        return per_isolate_object_wrapper[isolate][wrapper];
     }
 
     void Wrapper::MakeWeak() {
@@ -60,6 +61,7 @@ namespace js {
         auto wrapper = info.GetParameter();
         wrapper->_holder.Reset();
         per_isolate_object_wrapper[isolate].erase(wrapper);
+        delete wrapper;
     }
 
     Wrapper::~Wrapper() {
