@@ -410,38 +410,38 @@ namespace js {
 
     template<>
     struct StringValue<v8::MaybeLocal<v8::String>> {
-        v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, v8::MaybeLocal<v8::String> value) {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, v8::MaybeLocal<v8::String> value) {
             return value;
         }
 
-        v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> value) {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> value) {
             return value;
         }
 
-        v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> value) {
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> value) {
             return Create(context, value);
         }
 
-        v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> value) {
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> value) {
             return Create(context, value);
         }
     };
 
     template<>
-    struct StringValue<std::string> {
-        v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const std::string &string) {
+    struct StringValue<const std::string &> {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const std::string &string) {
             return v8::String::NewFromUtf8(isolate, string.c_str(), v8::NewStringType::kNormal, string.size());
         }
 
-        v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const std::string &string) {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const std::string &string) {
             return Create(context->GetIsolate(), string);
         }
 
-        v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const std::string &string) {
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const std::string &string) {
             return Create(context, string);
         }
 
-        v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const std::string &string) {
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const std::string &string) {
             return Create(context, string);
         }
     };
@@ -474,51 +474,51 @@ namespace js {
     };
 
     template<typename T>
-    struct StringValue<T, std::enable_if_t<std::is_integral_v<T>>> {
-        v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, T value) {
+    struct StringValue<const T &, std::enable_if_t<std::is_integral_v<T>>> {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const T &value) {
             // 64 is sufficient for base-2 for the largest integral type
             std::array<char, 64> string;
             if (auto [end, err] = std::to_chars(string.data(), string.data() + string.size(), value, 10); err == std::errc()) {
                 return v8::String::NewFromUtf8(isolate, string.data(), v8::NewStringType::kNormal, end - string.data());
             } else {
-                return String::Create(isolate, "[", typeid(T).name, ": ", std::make_error_code(err).message(), "]");
+                return String::Create(isolate, "[", typeid(T).name(), ": ", std::make_error_code(err).message(), "]");
             }
         }
 
-        v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, T value) {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const T &value) {
             return Create(context->GetIsolate(), value);
         }
 
-        v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, T value) {
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const T &value) {
             return Create(context, value);
         }
 
-        v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, T value) {
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const T &value) {
             return Create(context, value);
         }
     };
 
     template<typename T>
-    struct StringValue<T, std::enable_if_t<std::is_floating_point_v<T>>> {
-        v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, T value) {
+    struct StringValue<const T &, std::enable_if_t<std::is_floating_point_v<T>>> {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, T value) {
             // 64 is sufficient for base-2 for the largest integral type
             std::array<char, 1024> string;
             if (auto [end, err] = std::to_chars(string.data(), string.data() + string.size(), value, std::chars_format::fixed); err == std::errc()) {
                 return v8::String::NewFromUtf8(isolate, string.data(), v8::NewStringType::kNormal, end - string.data());
             } else {
-                return String::Create(isolate, "[", typeid(T).name, ": ", std::make_error_code(err).message(), "]");
+                return String::Create(isolate, "[", typeid(T).name(), ": ", std::make_error_code(err).message(), "]");
             }
         }
 
-        v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, T value) {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const T & value) {
             return Create(context->GetIsolate(), value);
         }
 
-        v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, T value) {
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const T & value) {
             return Create(context, value);
         }
 
-        v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, T value) {
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const T & value) {
             return Create(context, value);
         }
     };

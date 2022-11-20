@@ -15,6 +15,7 @@
                 "src/main.cxx",
                 "src/js-string-table.cxx",
                 "src/wrapper.cxx",
+                "src/api/private.cxx",
             ]
         }
     ],

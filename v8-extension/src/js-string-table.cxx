@@ -19,7 +19,6 @@ namespace js {
     }
 
     void StringTable::uninitialize(v8::Isolate *isolate) {
-        assert(per_isolate_string_map.find(isolate) != per_isolate_string_map.end());
         per_isolate_string_map.erase(isolate);
     }
 
