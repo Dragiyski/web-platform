@@ -6,11 +6,6 @@
 
 using callback_t = void (*)(void *);
 
-CONTEXT_AWARE_FUNCTION(void, TestCallback, (const v8::FunctionCallbackInfo<v8::Value> &info), {
-    auto isolate = info.GetIsolate();
-    JS_THROW_ERROR(TypeError, isolate, "Error from ", __function_definition__);
-});
-
 v8::Maybe<void> initialize(v8::Local<v8::Context> context) {
     auto isolate = context->GetIsolate();
     js::StringTable::initialize(isolate);

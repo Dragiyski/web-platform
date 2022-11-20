@@ -72,6 +72,11 @@ namespace dragiyski::node_ext {
             prototype_template->Set(name, value, JS_PROPERTY_ATTRIBUTE_STATIC);
         }
 
+        // Makes prototype *property* (not object) immutable similar to class X {}; syntax;
+        class_template->ReadOnlyPrototype();
+
+        class_template->InstanceTemplate()->SetInternalFieldCount(1);
+
         per_isolate_class_symbol.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(isolate),

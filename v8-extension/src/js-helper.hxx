@@ -63,11 +63,11 @@
 #define JS_EXPRESSION_RETURN(variable, code)\
     typename js::maybe<decltype(code)>::type variable;\
     {\
-        auto _0 = code;\
-        if (!js::maybe<decltype(_0)>::is_valid(_0)) {\
+        auto __js_expression_return_maybe__ = code;\
+        if (!js::maybe<decltype(__js_expression_return_maybe__)>::is_valid(__js_expression_return_maybe__)) {\
             return __function_return_type__();\
         }\
-        variable = js::maybe<decltype(_0)>::value(_0);\
+        variable = js::maybe<decltype(__js_expression_return_maybe__)>::value(__js_expression_return_maybe__);\
     }
 
   /**
@@ -77,8 +77,8 @@
    */
 #define JS_EXPRESSION_IGNORE(code)\
     {\
-        auto _0 = code;\
-        if (!js::maybe<decltype(_0)>::is_valid(_0)) {\
+        auto __js_expression_ignore_maybe__ = code;\
+        if (!js::maybe<decltype(__js_expression_ignore_maybe__)>::is_valid(__js_expression_ignore_maybe__)) {\
             return __function_return_type__();\
         }\
     }
@@ -96,11 +96,11 @@ namespace js {
     template<typename T>
     struct maybe<v8::Maybe<T>> {
         using type = T;
-        static constexpr bool is_valid(const v8::Maybe<T> &maybe) {
+        static constexpr bool is_valid(const v8::Maybe<T>& maybe) {
             return !maybe.IsNothing();
         }
 
-        static constexpr type value(const v8::Maybe<T> &maybe) {
+        static constexpr type value(const v8::Maybe<T>& maybe) {
             return maybe.ToChecked();
         }
     };
@@ -108,11 +108,11 @@ namespace js {
     template<typename T>
     struct maybe<v8::MaybeLocal<T>> {
         using type = v8::Local<T>;
-        static constexpr bool is_valid(const v8::MaybeLocal<T> &maybe) {
+        static constexpr bool is_valid(const v8::MaybeLocal<T> maybe) {
             return !maybe.IsEmpty();
         }
 
-        static constexpr type value(v8::MaybeLocal<T> &maybe) {
+        static constexpr type value(v8::MaybeLocal<T>& maybe) {
             return maybe.ToLocalChecked();
         }
     };
@@ -120,11 +120,11 @@ namespace js {
     template<typename T>
     struct maybe<v8::Local<T>> {
         using type = v8::Local<T>;
-        static constexpr bool is_valid(const v8::Local<T> &maybe) {
+        static constexpr bool is_valid(const v8::Local<T>& maybe) {
             return true;
         }
 
-        static constexpr type value(const v8::Local<T> &maybe) {
+        static constexpr type value(const v8::Local<T>& maybe) {
             return maybe;
         }
     };
@@ -134,283 +134,121 @@ namespace js {
 
     template<>
     struct isolate_or_context_impl<v8::Local<v8::Context>> {
-        static inline v8::Isolate *isolate(v8::Local<v8::Context> context) {
+        static inline v8::Isolate* isolate(v8::Local<v8::Context> context) {
             return context->GetIsolate();
         }
     };
 
     template<>
-    struct isolate_or_context_impl<v8::Isolate *> {
-        static constexpr inline v8::Isolate *isolate(v8::Isolate *isolate) {
+    struct isolate_or_context_impl<v8::Isolate*> {
+        static constexpr inline v8::Isolate* isolate(v8::Isolate* isolate) {
             return isolate;
         }
     };
 
     template<typename T>
-    constexpr v8::Isolate *isolate_or_context(T value) {
+    constexpr v8::Isolate* isolate_or_context(T value) {
         return isolate_or_context_impl<T>::isolate(value);
     }
 
     template<std::size_t N>
-    struct string_literal {
-        using type = const char(&)[N];
+    using string_literal_t = const char(&)[N];
+
+    template<typename T, typename = void>
+    struct string_type {
+        using type = T; // Everything else is kept as is.
+    };
+
+    template<typename T>
+    struct string_type<const v8::Local<T>&> {
+        using type = v8::Local<T>; // References to v8::Local are copied.
+    };
+
+    template<typename T>
+    struct string_type<const v8::MaybeLocal<T>&> {
+        using type = v8::MaybeLocal<T>; // References to v8::MaybeLocal are copied.
     };
 
     template<std::size_t N>
-    using string_literal_t = string_literal<N>::type;
+    struct string_type<string_literal_t<N>> {
+        using type = string_literal_t<N>; // String literal references are kept as is.
+    };
 
-    template<typename ... T>
-    struct StringList;
+    template<typename T>
+    struct string_type<const T* const&> {
+        using type = const T*;
+    };
+
+    template<typename T>
+    struct string_type<T* const&> {
+        using type = T*;
+    };
+
+    template<typename T>
+    struct string_type<const T&, std::enable_if_t<std::is_integral_v<T>>> {
+        using type = T; // References to scalars are removed.
+    };
+
+    template<typename T>
+    struct string_type<const T&, std::enable_if_t<std::is_floating_point_v<T>>> {
+        using type = T; // References to scalars are removed.
+    };
+
+    template<typename T>
+    using string_type_t = typename string_type<T>::type;
 
     template<typename T, typename = void>
-    struct StringValue;
+    struct string_value_impl;
 
-    template<typename ... T>
-    struct StringConcat;
-
-    template<typename First, typename Second, typename ... Rest>
-    struct StringConcat<First, Second, Rest...> {
-        static inline constexpr v8::Local<v8::String> New(v8::Isolate *isolate, First first, Second second, Rest ... rest) {
-            return StringConcat<v8::Local<v8::String>, Rest...>::New(
-                isolate,
-                v8::String::Concat(
-                    isolate,
-                    StringValue<First>::New(isolate, first),
-                    StringValue<Second>::New(isolate, second)
-                ),
-                rest...
-            );
-        }
-    };
-
-    template<typename T>
-    struct StringConcat<T> {
-        static inline constexpr v8::Local<v8::String> New(v8::Isolate *isolate, T value) {
-            return StringValue<T>::New(isolate, value);
-        }
-    };
-
-    template<typename First, typename Second, typename ... Rest>
-    struct StringList<First, Second, Rest...> {
-        static constexpr inline v8::Local<v8::String> New(v8::Isolate *isolate, const First &first, const Second &second, const Rest &...rest) {
-            return StringList<v8::Local<v8::String>, v8::Local<v8::String>, Rest...>::New(
-                isolate,
-                StringList<const First &>::New(isolate, first),
-                StringList<const Second &>::New(isolate, second),
-                rest...
-            );
+    template<std::size_t N>
+    struct string_value_impl<string_literal_t<N>> {
+        static inline v8::Local<v8::String> New(v8::Isolate* isolate, string_literal_t<N> value) {
+            return v8::String::NewFromUtf8Literal(isolate, value);
         }
 
-        static constexpr inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, First first, Second second, const Rest &...rest) {
-            return StringList<v8::MaybeLocal<v8::String>, v8::MaybeLocal<v8::String>, Rest...>::Create(
-                isolate,
-                StringList<First>::Create(isolate, first),
-                StringList<Second>::Create(isolate, second),
-                rest...
-            );
-        }
-
-        static constexpr inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, First first, Second second, const Rest &...rest) {
-            return StringList<v8::MaybeLocal<v8::String>, v8::MaybeLocal<v8::String>, Rest...>::Create(
-                context,
-                StringList<First>::Create(context, first),
-                StringList<Second>::Create(context, second),
-                rest...
-            );
-        }
-
-        static constexpr inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, First first, Second second, const Rest &...rest) {
-            return StringList<v8::MaybeLocal<v8::String>, v8::MaybeLocal<v8::String>, Rest...>::ToString(
-                context,
-                StringList<First>::ToString(context, first),
-                StringList<Second>::ToString(context, second),
-                rest...
-            );
-        }
-
-        static constexpr inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, First first, Second second, const Rest &...rest) {
-            return StringList<v8::MaybeLocal<v8::String>, v8::MaybeLocal<v8::String>, Rest...>::ToDetailString(
-                context,
-                StringList<First>::ToDetailString(context, first),
-                StringList<Second>::ToDetailString(context, second),
-                rest...
-            );
-        }
-    };
-
-
-    template<typename ... T>
-    struct StringList<v8::Local<v8::String>, v8::Local<v8::String>, T...> {
-        static constexpr inline v8::Local<v8::String> New(v8::Isolate *isolate, v8::Local<v8::String> first, v8::Local<v8::String> second, const T &...rest) {
-            return StringList<v8::Local<v8::String>, T...>::New(isolate, v8::String::Concat(isolate, first, second), rest...);
-        }
-
-        static constexpr inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, v8::Local<v8::String> first, v8::Local<v8::String> second, const T & ...rest) {
-            return StringList<v8::Local<v8::String>, T...>::Create(isolate, v8::String::Concat(isolate, first, second), rest...);
-        }
-
-        static constexpr inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, v8::Local<v8::String> first, v8::Local<v8::String> second, const T & ...rest) {
-            return StringList<v8::Local<v8::String>, T...>::Create(context, v8::String::Concat(context->GetIsolate(), first, second), rest...);
-        }
-
-        static constexpr inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, v8::Local<v8::String> first, v8::Local<v8::String> second, const T & ...rest) {
-            return StringList<v8::Local<v8::String>, T...>::ToString(context, v8::String::Concat(context->GetIsolate(), first, second), rest...);
-        }
-
-        static constexpr inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, v8::Local<v8::String> first, v8::Local<v8::String> second, const T & ...rest) {
-            return StringList<v8::Local<v8::String>, T...>::ToDetailString(context, v8::String::Concat(context->GetIsolate(), first, second), rest...);
-        }
-    };
-
-    template<typename ... T>
-    struct StringList<v8::MaybeLocal<v8::String>, v8::MaybeLocal<v8::String>, T...> {
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, v8::MaybeLocal<v8::String> first, v8::MaybeLocal<v8::String> second, const T & ...rest) {
-            if (!maybe<decltype(first)>::is_valid(first) || !maybe<decltype(second)>::is_valid(second)) {
-                return {};
-            }
-            return StringList<v8::MaybeLocal<v8::String>, T...>::Create(isolate, v8::String::Concat(isolate, maybe<decltype(first)>::value(first), maybe<decltype(second)>::value(second)), rest...);
-        }
-
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> first, v8::MaybeLocal<v8::String> second, const T & ...rest) {
-            if (!maybe<decltype(first)>::is_valid(first) || !maybe<decltype(second)>::is_valid(second)) {
-                return {};
-            }
-            return StringList<v8::MaybeLocal<v8::String>, T...>::Create(context, v8::String::Concat(context->GetIsolate(), maybe<decltype(first)>::value(first), maybe<decltype(second)>::value(second)), rest...);
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> first, v8::MaybeLocal<v8::String> second, const T & ...rest) {
-            if (!maybe<decltype(first)>::is_valid(first) || !maybe<decltype(second)>::is_valid(second)) {
-                return {};
-            }
-            return StringList<v8::MaybeLocal<v8::String>, T...>::ToString(context, v8::String::Concat(context->GetIsolate(), maybe<decltype(first)>::value(first), maybe<decltype(second)>::value(second)), rest...);
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> first, v8::MaybeLocal<v8::String> second, const T & ...rest) {
-            if (!maybe<decltype(first)>::is_valid(first) || !maybe<decltype(second)>::is_valid(second)) {
-                return {};
-            }
-            return StringList<v8::MaybeLocal<v8::String>, T...>::ToDetailString(context, v8::String::Concat(context->GetIsolate(), maybe<decltype(first)>::value(first), maybe<decltype(second)>::value(second)), rest...);
-        }
-    };
-
-    template<typename T>
-    struct StringList<T> {
-        static inline v8::Local<v8::String> New(v8::Isolate *isolate, const T &value) {
-            return StringValue<T>::New(isolate, value);
-        }
-
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const T &value) {
-            return StringValue<decltype(value)>::Create(isolate, value);
-        }
-
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const T &value) {
-            return StringValue<decltype(value)>::Create(context, value);
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const T &value) {
-            return StringValue<decltype(value)>::ToString(context, value);
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const T &value) {
-            return StringValue<decltype(value)>::ToDetailString(context, value);
-        }
-    };
-
-    struct String {
-        template<typename ... T>
-        static constexpr inline v8::Local<v8::String> New(v8::Isolate *isolate, const T& ... args) {
-            return StringList<decltype(args)...>::New(isolate, args...);
-        }
-
-        template<typename ... T>
-        static constexpr inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const T& ... args) {
-            return StringList<decltype(args)...>::Create(isolate, args...);
-        }
-
-        template<typename ... T>
-        static constexpr inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const T& ... args) {
-            return StringList<decltype(args)...>::Create(context, args...);
-        }
-
-        template<typename ... T>
-        static constexpr inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const T& ... args) {
-            return StringList<decltype(args)...>::ToString(context, args...);
-        }
-
-        template<typename ... T>
-        static constexpr inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const T& ... args) {
-            return StringList<decltype(args)...>::ToDetailString(context, args...);
-        }
-    };
-
-    template<>
-    struct StringValue<v8::Local<v8::String>> {
-        static inline v8::Local<v8::String> New(v8::Isolate *isolate, const v8::Local<v8::String> &value) {
-            return value;
-        }
-
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const v8::Local<v8::String> &value) {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate* isolate, string_literal_t<N> value) {
             return New(isolate, value);
         }
 
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const v8::Local<v8::String> &value) {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, string_literal_t<N> value) {
             return New(context->GetIsolate(), value);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const v8::Local<v8::String> &value) {
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, string_literal_t<N> value) {
             return Create(context, value);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const v8::Local<v8::String> &value) {
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, string_literal_t<N> value) {
             return Create(context, value);
-        }
-    };
-
-    template<std::size_t length>
-    struct StringValue<const char(&)[length]> {
-        static inline v8::Local<v8::String> New(v8::Isolate *isolate, const char(&literal)[length]) {
-            return v8::String::NewFromUtf8Literal(isolate, literal);
-        }
-
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const char(&literal)[length]) {
-            return New(isolate, literal);
-        }
-
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const char(&literal)[length]) {
-            return New(context->GetIsolate(), literal);
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const char(&literal)[length]) {
-            return Create(context, literal);
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const char(&literal)[length]) {
-            return Create(context, literal);
         }
     };
 
     template<>
-    struct StringValue<const char *const &> {
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const char *const &value) {
-            return v8::String::NewFromUtf8(isolate, value);
+    struct string_value_impl<v8::Local<v8::String>> {
+        static inline v8::Local<v8::String> New(v8::Isolate* isolate, v8::Local<v8::String> value) {
+            return value;
         }
 
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const char *const &value) {
-            return v8::String::NewFromUtf8(context->GetIsolate(), value);
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate* isolate, v8::Local<v8::String> value) {
+            return value;
         }
 
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const char *const &value) {
-            return v8::String::NewFromUtf8(context->GetIsolate(), value);
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, v8::Local<v8::String> value) {
+            return value;
         }
 
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const char *const &value) {
-            return v8::String::NewFromUtf8(context->GetIsolate(), value);
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, v8::Local<v8::String> value) {
+            return value;
+        }
+
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, v8::Local<v8::String> value) {
+            return value;
         }
     };
 
     template<>
-    struct StringValue<v8::MaybeLocal<v8::String>> {
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, v8::MaybeLocal<v8::String> value) {
+    struct string_value_impl<v8::MaybeLocal<v8::String>> {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate* isolate, v8::MaybeLocal<v8::String> value) {
             return value;
         }
 
@@ -419,36 +257,55 @@ namespace js {
         }
 
         static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> value) {
-            return Create(context, value);
+            return value;
         }
 
         static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, v8::MaybeLocal<v8::String> value) {
+            return value;
+        }
+    };
+
+    template<>
+    struct string_value_impl<const char*> {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate* isolate, const char* value) {
+            return v8::String::NewFromUtf8(isolate, value);
+        }
+
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const char* value) {
+            return Create(context->GetIsolate(), value);
+        }
+
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const char* value) {
+            return Create(context, value);
+        }
+
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const char* value) {
             return Create(context, value);
         }
     };
 
     template<>
-    struct StringValue<const std::string &> {
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const std::string &string) {
-            return v8::String::NewFromUtf8(isolate, string.c_str(), v8::NewStringType::kNormal, string.size());
+    struct string_value_impl<const std::string&> {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate* isolate, const std::string& value) {
+            return v8::String::NewFromUtf8(isolate, value.c_str());
         }
 
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const std::string &string) {
-            return Create(context->GetIsolate(), string);
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const std::string& value) {
+            return Create(context->GetIsolate(), value);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const std::string &string) {
-            return Create(context, string);
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const std::string& value) {
+            return Create(context, value);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const std::string &string) {
-            return Create(context, string);
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const std::string& value) {
+            return Create(context, value);
         }
     };
 
     template<>
-    struct StringValue<bool> {
-        v8::Local<v8::String> New(v8::Isolate *isolate, bool value) {
+    struct string_value_impl<bool> {
+        static inline v8::Local<v8::String> New(v8::Isolate* isolate, bool value) {
             if (value) {
                 return v8::String::NewFromUtf8Literal(isolate, "true");
             } else {
@@ -456,7 +313,7 @@ namespace js {
             }
         }
 
-        v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, bool value) {
+        v8::MaybeLocal<v8::String> Create(v8::Isolate* isolate, bool value) {
             return New(isolate, value);
         }
 
@@ -473,9 +330,26 @@ namespace js {
         }
     };
 
+    struct String {
+        template<typename ... T>
+        static constexpr v8::Local<v8::String> New(v8::Isolate* isolate, const T& ... args);
+
+        template<typename ... T>
+        static constexpr v8::MaybeLocal<v8::String> Create(v8::Isolate* isolate, const T& ... args);
+
+        template<typename ... T>
+        static constexpr v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const T& ... args);
+
+        template<typename ... T>
+        static constexpr v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const T& ... args);
+
+        template<typename ... T>
+        static constexpr v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const T& ... args);
+    };
+
     template<typename T>
-    struct StringValue<const T &, std::enable_if_t<std::is_integral_v<T>>> {
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const T &value) {
+    struct string_value_impl<T, std::enable_if_t<std::is_integral_v<T>>> {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate* isolate, T value) {
             // 64 is sufficient for base-2 for the largest integral type
             std::array<char, 64> string;
             if (auto [end, err] = std::to_chars(string.data(), string.data() + string.size(), value, 10); err == std::errc()) {
@@ -485,22 +359,22 @@ namespace js {
             }
         }
 
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const T &value) {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const T& value) {
             return Create(context->GetIsolate(), value);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const T &value) {
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const T& value) {
             return Create(context, value);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const T &value) {
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const T& value) {
             return Create(context, value);
         }
     };
 
     template<typename T>
-    struct StringValue<const T &, std::enable_if_t<std::is_floating_point_v<T>>> {
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, T value) {
+    struct string_value_impl<T, std::enable_if_t<std::is_floating_point_v<T>>> {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate* isolate, T value) {
             // 64 is sufficient for base-2 for the largest integral type
             std::array<char, 1024> string;
             if (auto [end, err] = std::to_chars(string.data(), string.data() + string.size(), value, std::chars_format::fixed); err == std::errc()) {
@@ -510,62 +384,36 @@ namespace js {
             }
         }
 
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const T & value) {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const T& value) {
             return Create(context->GetIsolate(), value);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const T & value) {
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const T& value) {
             return Create(context, value);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const T & value) {
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const T& value) {
             return Create(context, value);
         }
     };
 
     template<typename T>
-    struct StringValue<const v8::Local<T> &, std::enable_if_t<std::is_base_of_v<v8::Primitive, T>>> {
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const v8::Local<T> &value) {
-            return value->ToString(context);
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const v8::Local<T> &value) {
-            return value->ToString(context);
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const v8::Local<T> &value) {
-            return value->ToDetailString(context);
-        }
-    };
-
-    template<typename T>
-    struct StringValue<const v8::Local<T> &, std::enable_if_t<std::is_base_of_v<v8::Value, T>>> {
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const v8::Local<T> &value) {
-            return value->ToString(context);
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const v8::Local<T> &value) {
-            return value->ToDetailString(context);
-        }
-    };
-
-    template<typename T>
-    struct StringValue<const v8::MaybeLocal<T> &, std::enable_if_t<std::is_base_of_v<v8::Primitive, T>>> {
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const v8::MaybeLocal<T> &value) {
+    struct string_value_impl<v8::MaybeLocal<T>, std::enable_if_t<std::is_base_of_v<v8::Primitive, T>>> {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, v8::MaybeLocal<T> value) {
             if (value.IsEmpty()) {
                 return {};
             }
             return value.ToLocalChecked()->ToString(context);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const v8::MaybeLocal<T> &value) {
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, v8::MaybeLocal<T> value) {
             if (value.IsEmpty()) {
                 return {};
             }
             return value.ToLocalChecked()->ToString(context);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const v8::MaybeLocal<T> &value) {
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, v8::MaybeLocal<T> value) {
             if (value.IsEmpty()) {
                 return {};
             }
@@ -574,63 +422,103 @@ namespace js {
     };
 
     template<typename T>
-    struct StringValue<const v8::MaybeLocal<T> &, std::enable_if_t<std::is_base_of_v<v8::Value, T>>> {
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const v8::MaybeLocal<T> &value) {
-            if (value.IsEmpty()) {
-                return {};
-            }
-            return value.ToLocalChecked()->ToString(context);
+    struct string_value_impl<v8::Local<T>, std::enable_if_t<std::is_base_of_v<v8::Value, T>>> {
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const v8::Local<T>& value) {
+            return value->ToString(context);
         }
 
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const v8::MaybeLocal<T> &value) {
-            if (value.IsEmpty()) {
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const v8::Local<T>& value) {
+            return value->ToDetailString(context);
+        }
+    };
+
+    template<typename ... T>
+    struct string_concat_impl;
+
+    template<typename ... Rest>
+    struct string_concat_impl<v8::Local<v8::String>, v8::Local<v8::String>, Rest...> {
+        static inline v8::Local<v8::String> concat(v8::Isolate* isolate, v8::Local<v8::String> first, v8::Local<v8::String> second, Rest ... rest) {
+            return string_concat_impl<v8::Local<v8::String>, Rest...>::concat(isolate, v8::String::Concat(isolate, first, second), rest...);
+        }
+    };
+
+    template<typename ... Rest>
+    struct string_concat_impl<v8::MaybeLocal<v8::String>, v8::MaybeLocal<v8::String>, Rest...> {
+        static inline v8::MaybeLocal<v8::String> concat(v8::Isolate* isolate, v8::MaybeLocal<v8::String> first, v8::MaybeLocal<v8::String> second, Rest ... rest) {
+            if (first.IsEmpty() || second.IsEmpty()) {
                 return {};
             }
-            return value.ToLocalChecked()->ToDetailString(context);
+            return string_concat_impl<v8::Local<v8::String>, Rest...>::concat(isolate, v8::String::Concat(isolate, first.ToLocalChecked(), second.ToLocalChecked()), rest...);
+        }
+    };
+
+    template<typename ... Rest>
+    struct string_concat_impl<v8::Local<v8::String>, v8::MaybeLocal<v8::String>, Rest...> {
+        static inline v8::MaybeLocal<v8::String> concat(v8::Isolate* isolate, v8::Local<v8::String> first, v8::MaybeLocal<v8::String> second, Rest ... rest) {
+            if (second.IsEmpty()) {
+                return {};
+            }
+            return string_concat_impl<v8::Local<v8::String>, Rest...>::concat(isolate, v8::String::Concat(isolate, first, second.ToLocalChecked()), rest...);
         }
     };
 
     template<>
-    struct StringValue<const v8::Local<v8::String> &> {
-        static inline v8::Local<v8::String> New(v8::Isolate *isolate, const v8::Local<v8::String> &value) {
-            return value;
-        }
-
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const v8::Local<v8::String> &value) {
-            return value;
-        }
-
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const v8::Local<v8::String> &value) {
-            return value;
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const v8::Local<v8::String> &value) {
-            return value;
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const v8::Local<v8::String> &value) {
+    struct string_concat_impl<v8::Local<v8::String>> {
+        static inline v8::Local<v8::String> concat(v8::Isolate* isolate, v8::Local<v8::String> value) {
             return value;
         }
     };
 
     template<>
-    struct StringValue<const v8::MaybeLocal<v8::String> &> {
-        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate *isolate, const v8::MaybeLocal<v8::String> &value) {
-            return value;
-        }
-
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, const v8::MaybeLocal<v8::String> &value) {
-            return value;
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, const v8::MaybeLocal<v8::String> &value) {
-            return value;
-        }
-
-        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, const v8::MaybeLocal<v8::String> &value) {
+    struct string_concat_impl<v8::MaybeLocal<v8::String>> {
+        static inline v8::MaybeLocal<v8::String> concat(v8::Isolate* isolate, v8::MaybeLocal<v8::String> value) {
             return value;
         }
     };
+
+    template<typename ... T>
+    struct string_impl {
+        static inline v8::Local<v8::String> New(v8::Isolate* isolate, T... values) {
+            return string_concat_impl<decltype(string_value_impl<T>::New(isolate, values))...>::concat(isolate, string_value_impl<T>::New(isolate, values)...);
+        };
+        static inline v8::MaybeLocal<v8::String> Create(v8::Isolate* isolate, T... values) {
+            return string_concat_impl<decltype(string_value_impl<T>::Create(isolate, values))...>::concat(isolate, string_value_impl<T>::Create(isolate, values)...);
+        };
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, T... values) {
+            return string_concat_impl<decltype(string_value_impl<T>::Create(context, values))...>::concat(context->GetIsolate(), string_value_impl<T>::Create(context, values)...);
+        };
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, T... values) {
+            return string_concat_impl<decltype(string_value_impl<T>::ToString(context, values))...>::concat(context->GetIsolate(), string_value_impl<T>::ToString(context, values)...);
+        };
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, T... values) {
+            return string_concat_impl<decltype(string_value_impl<T>::ToDetailString(context, values))...>::concat(context->GetIsolate(), string_value_impl<T>::ToDetailString(context, values)...);
+        };
+    };
+
+    template<typename ... T>
+    constexpr v8::Local<v8::String> String::New(v8::Isolate* isolate, const T& ... args) {
+        return string_impl<string_type_t<const T&>...>::New(isolate, static_cast<string_type_t<const T&>>(args)...);
+    }
+
+    template<typename ... T>
+    constexpr v8::MaybeLocal<v8::String> String::Create(v8::Isolate* isolate, const T& ... args) {
+        return string_impl<string_type_t<const T&>...>::Create(isolate, static_cast<string_type_t<const T&>>(args)...);
+    }
+
+    template<typename ... T>
+    constexpr v8::MaybeLocal<v8::String> String::Create(v8::Local<v8::Context> context, const T& ... args) {
+        return string_impl<string_type_t<const T&>...>::Create(context, static_cast<string_type_t<const T&>>(args)...);
+    }
+
+    template<typename ... T>
+    constexpr v8::MaybeLocal<v8::String> String::ToString(v8::Local<v8::Context> context, const T& ... args) {
+        return string_impl<string_type_t<const T&>...>::ToString(context, static_cast<string_type_t<const T&>>(args)...);
+    }
+
+    template<typename ... T>
+    constexpr v8::MaybeLocal<v8::String> String::ToDetailString(v8::Local<v8::Context> context, const T& ... args) {
+        return string_impl<string_type_t<const T&>...>::ToDetailString(context, static_cast<string_type_t<const T&>>(args)...);
+    }
 
     template<typename T, typename ... S>
     struct error_message_impl;
@@ -643,8 +531,8 @@ namespace js {
     };
 
     template<typename ... S>
-    struct error_message_impl<v8::Isolate *, S...> {
-        static inline v8::MaybeLocal<v8::String> create(v8::Isolate *isolate, const S &... string_list) {
+    struct error_message_impl<v8::Isolate*, S...> {
+        static inline v8::MaybeLocal<v8::String> create(v8::Isolate* isolate, const S &... string_list) {
             return String::Create(isolate, string_list...);
         }
     };
@@ -656,9 +544,9 @@ namespace js {
 
 #define JS_THROW_ERROR(Type, isolate_or_context_value, ...)\
         {\
-            JS_EXPRESSION_RETURN(_0, ::js::ErrorMessage((isolate_or_context_value), __VA_ARGS__));\
-            auto _1 = v8::Exception::Type(_0);\
-            ::js::isolate_or_context(isolate_or_context_value)->ThrowException(_1);\
+            JS_EXPRESSION_RETURN(__js_throw_error_message__, ::js::ErrorMessage((isolate_or_context_value), __VA_ARGS__));\
+            auto __js_throw_error_exception__ = v8::Exception::Type(__js_throw_error_message__);\
+            ::js::isolate_or_context(isolate_or_context_value)->ThrowException(__js_throw_error_exception__);\
             return __function_return_type__();\
         }
 
