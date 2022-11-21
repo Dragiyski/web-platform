@@ -14,8 +14,10 @@
             "sources": [
                 "src/main.cxx",
                 "src/js-string-table.cxx",
+                "src/function.cxx",
                 "src/wrapper.cxx",
                 "src/api/private.cxx",
+                "src/api/context.cxx",
             ]
         }
     ],

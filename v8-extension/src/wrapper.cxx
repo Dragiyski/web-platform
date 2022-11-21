@@ -26,6 +26,16 @@ namespace js {
         per_isolate_object_wrapper.erase(isolate);
     }
 
+    void dispose(v8::Isolate *isolate, Wrapper *wrapper) {
+        assert(per_isolate_object_wrapper.contains(isolate));
+        auto holder = wrapper->get_holder(isolate);
+        if (!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1) {
+            holder->SetAlignedPointerInInternalField(0, nullptr);
+        }
+        per_isolate_object_wrapper[isolate].erase(wrapper);
+        delete wrapper;
+    }
+
     v8::Local<v8::Object> Wrapper::get_holder(v8::Isolate *isolate) {
         return _holder.Get(isolate);
     }
@@ -59,7 +69,6 @@ namespace js {
         auto isolate = info.GetIsolate();
         assert(per_isolate_object_wrapper.contains(isolate));
         auto wrapper = info.GetParameter();
-        wrapper->_holder.Reset();
         per_isolate_object_wrapper[isolate].erase(wrapper);
         delete wrapper;
     }

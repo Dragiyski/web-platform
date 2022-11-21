@@ -14,6 +14,8 @@ namespace js {
     public:
         static void initialize(v8::Isolate* isolate);
         static void uninitialize(v8::Isolate* isolate);
+    public:
+        static void dispose(v8::Isolate *isolate, Wrapper *wrapper);
     private:
         Shared<v8::Object> _holder;
     public:

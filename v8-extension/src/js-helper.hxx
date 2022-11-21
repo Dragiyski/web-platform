@@ -556,6 +556,11 @@ namespace js {
 #define JS_PROPERTY_ATTRIBUTE_VOLATIE (static_cast<v8::PropertyAttribute>(v8::PropertyAttribute::DontEnum | v8::PropertyAttribute::ReadOnly))
 #define JS_PROPERTY_ATTRIBUTE_DYNAMIC (static_cast<v8::PropertyAttribute>(v8::PropertyAttribute::DontEnum))
 #define JS_PROPERTY_ATTRIBUTE_DEFAULT (static_cast<v8::PropertyAttribute>(v8::PropertyAttribute::None))
+
+    struct Source : public v8::ScriptCompiler::Source {
+        template<typename ... Args>
+        Source(Args &&... args) : v8::ScriptCompiler::Source(std::forward<Args>(args)...) {}
+    };
 }
 
 #endif /* JS_HELPER_HXX */

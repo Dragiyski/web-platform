@@ -25,9 +25,8 @@ namespace dragiyski::node_ext {
         Shared<v8::Private> _value;
     public:
         v8::Local<v8::Private> value(v8::Isolate *isolate) const;
-    public:
-        Private(v8::Isolate *isolate, v8::Local<v8::Private> value);
     protected:
+        Private(v8::Isolate *isolate, v8::Local<v8::Private> value);
         Private(const Private &) = delete;
         Private(Private &&) = delete;
     public:

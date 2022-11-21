@@ -152,6 +152,11 @@ namespace dragiyski::node_ext {
         auto wrapper = Unwrap<Private>(isolate, holder);
         auto value = wrapper->value(isolate);
 
+        JS_EXPRESSION_RETURN(has_private, object->HasPrivate(context, value));
+        if (!has_private) {
+            info.GetReturnValue().SetUndefined();
+            return;
+        }
         JS_EXPRESSION_RETURN(return_value, object->GetPrivate(context, value));
         info.GetReturnValue().Set(return_value);
     }
@@ -218,6 +223,11 @@ namespace dragiyski::node_ext {
         auto wrapper = Unwrap<Private>(isolate, holder);
         auto value = wrapper->value(isolate);
 
+        JS_EXPRESSION_RETURN(has_private, object->HasPrivate(context, value));
+        if (!has_private) {
+            info.GetReturnValue().Set(false);
+            return;
+        }
         JS_EXPRESSION_RETURN(return_value, object->DeletePrivate(context, value));
         info.GetReturnValue().Set(return_value);
     }
