@@ -8,6 +8,7 @@
 namespace js {
     namespace {
         std::map<v8::Isolate *, std::set<Wrapper *>> per_isolate_object_wrapper;
+        std::map<v8::Isolate *, Shared<v8::Private>> per_isolate_wrapper_symbol;
     }
 
     void Wrapper::initialize(v8::Isolate *isolate) {
@@ -17,6 +18,15 @@ namespace js {
             std::forward_as_tuple(isolate),
             std::forward_as_tuple()
         );
+        {
+            auto name = StringTable::Get(isolate, "wrapper");
+            auto symbol = v8::Private::New(isolate);
+            per_isolate_wrapper_symbol.emplace(
+                std::piecewise_construct,
+                std::forward_as_tuple(isolate),
+                std::forward_as_tuple(isolate, symbol)
+            );
+        }
     }
 
     void Wrapper::uninitialize(v8::Isolate *isolate) {
@@ -24,6 +34,7 @@ namespace js {
             delete wrapper;
         }
         per_isolate_object_wrapper.erase(isolate);
+        per_isolate_wrapper_symbol.erase(isolate);
     }
 
     void dispose(v8::Isolate *isolate, Wrapper *wrapper) {

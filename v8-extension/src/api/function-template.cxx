@@ -259,7 +259,9 @@ namespace dragiyski::node_ext {
         // "prototype" is only allowed when constructor == true and prototype_provider.IsEmpty()
         // "instance" is always allowed.
 
-        auto template_value = v8::FunctionTemplate::New(isolate, callback, info.This(), signature, length, constructor_behavior, side_effect_type);
+        JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_symbol(isolate), info.This()))
+
+        auto template_value = v8::FunctionTemplate::New(isolate, callback, holder, signature, length, constructor_behavior, side_effect_type);
         if (!name.IsEmpty()) {
             template_value->SetClassName(name);
         }
@@ -284,8 +286,9 @@ namespace dragiyski::node_ext {
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
 
-        auto self = info.Data().As<v8::Object>();
-        JS_EXPRESSION_RETURN(wrapper, Wrapper::Unwrap<FunctionTemplate>(isolate, self, get_class_template(isolate), "FunctionTemplate"));
+        auto holder = info.Data().As<v8::Object>();
+        auto wrapper = Wrapper::Unwrap<FunctionTemplate>(isolate, holder);
+        JS_EXPRESSION_RETURN(self, holder->Get(context, Wrapper::get_symbol(isolate)));
         auto callee = wrapper->callee(isolate);
 
         v8::Local<v8::Array> arguments;
