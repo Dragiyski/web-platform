@@ -91,11 +91,41 @@ namespace js {
     using Unique = v8::Global<T>;
 
     template<typename T>
-    struct maybe {};
+    struct maybe {
+        using type = T;
+        using maybe_type = v8::Maybe<T>;
+
+        static constexpr auto return_type = v8::Nothing<T>;
+
+        static constexpr bool is_valid(const T& maybe) {
+            return true;
+        }
+
+        static constexpr type value(const T& maybe) {
+            return maybe;
+        }
+
+        static constexpr maybe_type to_maybe(T && value) {
+            v8::Just(value);
+        }
+    };
+
+    template<>
+    struct maybe<void> {
+        using type = void;
+        using maybe_type = v8::Maybe<void>;
+
+        static auto return_type() {
+            return v8::JustVoid();
+        }
+    };
 
     template<typename T>
     struct maybe<v8::Maybe<T>> {
         using type = T;
+        using maybe_type = v8::Maybe<T>;
+        static constexpr auto return_value = v8::Nothing<T>;
+
         static constexpr bool is_valid(const v8::Maybe<T>& maybe) {
             return !maybe.IsNothing();
         }
@@ -108,6 +138,12 @@ namespace js {
     template<typename T>
     struct maybe<v8::MaybeLocal<T>> {
         using type = v8::Local<T>;
+        using maybe_type = v8::MaybeLocal<T>;
+
+        static constexpr auto return_value() {
+            return maybe_type();
+        }
+
         static constexpr bool is_valid(const v8::MaybeLocal<T> maybe) {
             return !maybe.IsEmpty();
         }

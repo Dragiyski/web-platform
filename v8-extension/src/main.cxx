@@ -4,8 +4,9 @@
 #include "js-string-table.hxx"
 #include "api/private.hxx"
 #include "api/context.hxx"
+#include "api/function-template.hxx"
 
-using callback_t = void (*)(void *);
+using callback_t = void (*)(void*);
 
 v8::Maybe<void> initialize(v8::Local<v8::Context> context) {
     auto isolate = context->GetIsolate();
@@ -13,10 +14,12 @@ v8::Maybe<void> initialize(v8::Local<v8::Context> context) {
     js::Wrapper::initialize(isolate);
     dragiyski::node_ext::Private::initialize(isolate);
     dragiyski::node_ext::Context::initialize(isolate);
+    dragiyski::node_ext::FunctionTemplate::initialize(isolate);
     return v8::JustVoid();
 }
 
-void uninitialize(v8::Isolate *isolate) {
+void uninitialize(v8::Isolate* isolate) {
+    dragiyski::node_ext::FunctionTemplate::uninitialize(isolate);
     dragiyski::node_ext::Context::uninitialize(isolate);
     dragiyski::node_ext::Private::uninitialize(isolate);
     js::Wrapper::uninitialize(isolate);
@@ -51,6 +54,63 @@ NODE_MODULE_INIT() {
         auto name = js::StringTable::Get(isolate, "Context");
         auto class_template = Context::get_class_template(isolate);
         JS_EXPRESSION_RETURN(value, class_template->GetFunction(context));
+        JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
+    }
+    {
+        auto name = js::StringTable::Get(isolate, "FunctionTemplate");
+        auto class_template = FunctionTemplate::get_class_template(isolate);
+        JS_EXPRESSION_RETURN(value, class_template->GetFunction(context));
+        JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
+    }
+    {
+        v8::Local<v8::Name> names[] = {
+            StringTable::Get(isolate, "NONE"),
+            StringTable::Get(isolate, "NO_DELETE"),
+            StringTable::Get(isolate, "NO_ENUM"),
+            StringTable::Get(isolate, "READ_ONLY")
+        };
+        v8::Local<v8::Value> values[] = {
+            v8::Integer::New(isolate, v8::PropertyAttribute::None),
+            v8::Integer::New(isolate, v8::PropertyAttribute::DontDelete),
+            v8::Integer::New(isolate, v8::PropertyAttribute::DontEnum),
+            v8::Integer::New(isolate, v8::PropertyAttribute::ReadOnly)
+        };
+        auto value = v8::Object::New(isolate, v8::Null(isolate), names, values, 4);
+        JS_EXPRESSION_IGNORE(value->SetIntegrityLevel(context, v8::IntegrityLevel::kFrozen));
+        auto name = StringTable::Get(isolate, "propertyAttribute");
+        JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
+    }
+    {
+        v8::Local<v8::Name> names[] = {
+            StringTable::Get(isolate, "DEFAULT"),
+            StringTable::Get(isolate, "ALL_CAN_READ"),
+            StringTable::Get(isolate, "ALL_CAN_WRITE"),
+        };
+        v8::Local<v8::Value> values[] = {
+            v8::Integer::New(isolate, v8::AccessControl::DEFAULT),
+            v8::Integer::New(isolate, v8::AccessControl::ALL_CAN_READ),
+            v8::Integer::New(isolate, v8::AccessControl::ALL_CAN_WRITE),
+        };
+        auto value = v8::Object::New(isolate, v8::Null(isolate), names, values, 3);
+        JS_EXPRESSION_IGNORE(value->SetIntegrityLevel(context, v8::IntegrityLevel::kFrozen));
+        auto name = StringTable::Get(isolate, "accessControl");
+        JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
+    }
+
+    {
+        v8::Local<v8::Name> names[] = {
+            StringTable::Get(isolate, "HAS_NO_SIDE_EFFECTS"),
+            StringTable::Get(isolate, "HAS_SIDE_EFFECTS"),
+            StringTable::Get(isolate, "HAS_SIDE_EFFECTS_TO_RECEIVER")
+        };
+        v8::Local<v8::Value> values[] = {
+            v8::Integer::New(isolate, static_cast<int32_t>(v8::SideEffectType::kHasNoSideEffect)),
+            v8::Integer::New(isolate, static_cast<int32_t>(v8::SideEffectType::kHasSideEffect)),
+            v8::Integer::New(isolate, static_cast<int32_t>(v8::SideEffectType::kHasSideEffectToReceiver))
+        };
+        auto value = v8::Object::New(isolate, v8::Null(isolate), names, values, 3);
+        JS_EXPRESSION_IGNORE(value->SetIntegrityLevel(context, v8::IntegrityLevel::kFrozen));
+        auto name = StringTable::Get(isolate, "sideEffectType");
         JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
     }
 }

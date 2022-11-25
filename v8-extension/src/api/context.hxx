@@ -24,7 +24,7 @@ namespace dragiyski::node_ext {
     private:
         Shared<v8::Context> _value;
     public:
-        v8::Local<v8::Context> get_value(v8::Isolate *isolate);
+        v8::Local<v8::Context> get_value(v8::Isolate *isolate) const;
     protected:
         Context(v8::Isolate* isolate, v8::Local<v8::Context> value);
         Context(const Context&) = delete;

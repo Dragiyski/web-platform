@@ -399,7 +399,7 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().Set(compiled_function);
     }
 
-    v8::Local<v8::Context> Context::get_value(v8::Isolate* isolate) {
+    v8::Local<v8::Context> Context::get_value(v8::Isolate* isolate) const {
         return _value.Get(isolate);
     }
 

@@ -28,6 +28,7 @@ namespace js {
 
     void dispose(v8::Isolate *isolate, Wrapper *wrapper) {
         assert(per_isolate_object_wrapper.contains(isolate));
+        v8::HandleScope scope(isolate);
         auto holder = wrapper->get_holder(isolate);
         if (!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1) {
             holder->SetAlignedPointerInInternalField(0, nullptr);
@@ -40,15 +41,14 @@ namespace js {
         return _holder.Get(isolate);
     }
 
-    v8::MaybeLocal<v8::Object> Wrapper::get_holder(v8::Isolate *isolate, v8::Local<v8::Object> self, v8::Local<v8::FunctionTemplate> class_template) {
+    v8::MaybeLocal<v8::Object> Wrapper::get_holder(v8::Isolate *isolate, v8::Local<v8::Object> self, v8::Local<v8::FunctionTemplate> class_template, const char *type) {
         using __function_return_type__ = v8::MaybeLocal<v8::Object>;
 
         auto holder = self->FindInstanceInPrototypeChain(class_template);
         if (!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1) {
             return holder;
         }
-        auto message = StringTable::Get(isolate, "Illegal constructor");
-        JS_THROW_ERROR(TypeError, isolate, message);
+        JS_THROW_ERROR(TypeError, isolate, "Failed to convert value to '", type, "'.");
     }
 
     void Wrapper::Wrap(v8::Isolate *isolate, v8::Local<v8::Object> holder) {
@@ -69,6 +69,7 @@ namespace js {
         auto isolate = info.GetIsolate();
         assert(per_isolate_object_wrapper.contains(isolate));
         auto wrapper = info.GetParameter();
+        // TODO: Maybe dispose will work here. It is unclear if temporary local handle is okay.
         per_isolate_object_wrapper[isolate].erase(wrapper);
         delete wrapper;
     }

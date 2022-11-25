@@ -119,7 +119,11 @@ namespace dragiyski::node_ext {
         auto self_template = get_class_template(isolate);
 
         info.GetReturnValue().Set(self);
-        JS_EXPRESSION_RETURN(holder, get_holder(isolate, self, self_template));
+        auto holder = info.This()->FindInstanceInPrototypeChain(self_template);
+        if (holder.IsEmpty() || !holder->IsObject() || holder->InternalFieldCount() < 1) {
+            auto message = StringTable::Get(isolate, "Illegal constructor");
+            JS_THROW_ERROR(TypeError, isolate, message);
+        }
 
         v8::Local<v8::String> name;
         if (!info[0]->IsNullOrUndefined()) {
@@ -150,7 +154,7 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Holder();
         auto wrapper = Unwrap<Private>(isolate, holder);
-        auto value = wrapper->value(isolate);
+        auto value = wrapper->get_value(isolate);
 
         JS_EXPRESSION_RETURN(has_private, object->HasPrivate(context, value));
         if (!has_private) {
@@ -177,7 +181,7 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Holder();
         auto wrapper = Unwrap<Private>(isolate, holder);
-        auto value = wrapper->value(isolate);
+        auto value = wrapper->get_value(isolate);
 
         JS_EXPRESSION_RETURN(return_value, object->SetPrivate(context, value, info[1]));
         info.GetReturnValue().Set(return_value);
@@ -199,7 +203,7 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Holder();
         auto wrapper = Unwrap<Private>(isolate, holder);
-        auto value = wrapper->value(isolate);
+        auto value = wrapper->get_value(isolate);
 
         JS_EXPRESSION_RETURN(return_value, object->HasPrivate(context, value));
         info.GetReturnValue().Set(return_value);
@@ -221,7 +225,7 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Holder();
         auto wrapper = Unwrap<Private>(isolate, holder);
-        auto value = wrapper->value(isolate);
+        auto value = wrapper->get_value(isolate);
 
         JS_EXPRESSION_RETURN(has_private, object->HasPrivate(context, value));
         if (!has_private) {
