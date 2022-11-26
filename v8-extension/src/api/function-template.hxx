@@ -40,6 +40,7 @@ namespace dragiyski::node_ext {
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void callback(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void prototype_get(const v8::FunctionCallbackInfo<v8::Value>& info);
     private:
         Shared<v8::FunctionTemplate> _value;
         Shared<v8::Function> _callee;

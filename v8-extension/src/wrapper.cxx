@@ -20,7 +20,7 @@ namespace js {
         );
         {
             auto name = StringTable::Get(isolate, "wrapper");
-            auto symbol = v8::Private::New(isolate);
+            auto symbol = v8::Private::New(isolate, name);
             per_isolate_wrapper_symbol.emplace(
                 std::piecewise_construct,
                 std::forward_as_tuple(isolate),
@@ -46,6 +46,11 @@ namespace js {
         }
         per_isolate_object_wrapper[isolate].erase(wrapper);
         delete wrapper;
+    }
+
+    v8::Local<v8::Private> Wrapper::get_symbol(v8::Isolate *isolate) {
+        assert(per_isolate_wrapper_symbol.contains(isolate));
+        return per_isolate_wrapper_symbol[isolate].Get(isolate);
     }
 
     v8::Local<v8::Object> Wrapper::get_holder(v8::Isolate *isolate) {

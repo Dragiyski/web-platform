@@ -1,5 +1,7 @@
 #include "function-template.hxx"
 
+#include "context.hxx"
+
 #include "../js-string-table.hxx"
 #include "../error-message.hxx"
 #include <map>
@@ -24,6 +26,21 @@ namespace dragiyski::node_ext {
             class_cache
         );
         class_template->SetClassName(class_name);
+
+        auto signature = v8::Signature::New(isolate, class_template);
+        auto prototype_template = class_template->PrototypeTemplate();
+        {
+            auto name = StringTable::Get(isolate, "get");
+            auto value = v8::FunctionTemplate::New(
+                isolate,
+                prototype_get,
+                {},
+                signature,
+                0,
+                v8::ConstructorBehavior::kThrow
+            );
+            prototype_template->Set(name, value, JS_PROPERTY_ATTRIBUTE_STATIC);
+        }
 
         class_template->ReadOnlyPrototype();
         class_template->InstanceTemplate()->SetInternalFieldCount(1);
@@ -261,7 +278,7 @@ namespace dragiyski::node_ext {
 
         JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_symbol(isolate), info.This()))
 
-        auto template_value = v8::FunctionTemplate::New(isolate, callback, holder, signature, length, constructor_behavior, side_effect_type);
+            auto template_value = v8::FunctionTemplate::New(isolate, callback, holder, signature, length, constructor_behavior, side_effect_type);
         if (!name.IsEmpty()) {
             template_value->SetClassName(name);
         }
@@ -288,24 +305,15 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Data().As<v8::Object>();
         auto wrapper = Wrapper::Unwrap<FunctionTemplate>(isolate, holder);
-        JS_EXPRESSION_RETURN(self, holder->Get(context, Wrapper::get_symbol(isolate)));
+        JS_EXPRESSION_RETURN(self, holder->GetPrivate(context, Wrapper::get_symbol(isolate)));
         auto callee = wrapper->callee(isolate);
 
-        v8::Local<v8::Array> arguments;
-        {
-            std::vector<v8::Local<v8::Value>> arguments_vector;
-            try {
-                arguments_vector.reserve(info.Length());
-            } catch (const std::length_error&) {
-                JS_THROW_ERROR(Error, isolate, "arguments: std::vector::reserve(): std::length_error: too many arguments");
-            } catch (const std::bad_alloc& err) {
-                JS_THROW_ERROR(Error, isolate, "arguments: std::vector::reserve(): std::bad_alloc: ", err.what());
-            }
-            for (decltype(info.Length()) i = 0; i < info.Length(); ++i) {
-                arguments_vector.push_back(info[i]);
-            }
-            arguments = v8::Array::New(isolate, arguments_vector.data(), arguments_vector.size());
+        v8::Local<v8::Value> arguments_list[info.Length()];
+        for (decltype(info.Length()) i = 0; i < info.Length(); ++i) {
+            arguments_list[i] = info[i];
         }
+        auto arguments = v8::Array::New(isolate, arguments_list, info.Length());
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
@@ -331,6 +339,40 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().Set(return_value);
     }
 
+    void FunctionTemplate::prototype_get(const v8::FunctionCallbackInfo<v8::Value>& info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        auto wrapper = Wrapper::Unwrap<FunctionTemplate>(isolate, info.Holder());
+        if (wrapper == nullptr) {
+            JS_THROW_ERROR(ReferenceError, isolate, "[object FunctionTemplate] no longer wraps a native object");
+        }
+
+        v8::Local<v8::Context> callee_context = context;
+
+        if (!info[0]->IsNullOrUndefined()) {
+            if (!info[0]->IsObject()) {
+                JS_THROW_ERROR(TypeError, isolate, "Expected arguments[0] to be an object.");
+            }
+            JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(
+                context_wrapper,
+                Wrapper::Unwrap<Context>(isolate, info[0].As<v8::Object>(), Context::get_class_template(isolate), "Context"),
+                context,
+                "arguments[0]"
+            );
+            callee_context = context_wrapper->get_value(isolate);
+            if (callee_context.IsEmpty()) {
+                JS_THROW_ERROR(ReferenceError, isolate, "[object Context] no longer references v8::Context");
+            }
+        }
+
+        auto callee_template = wrapper->value(isolate);
+        JS_EXPRESSION_RETURN(callee, callee_template->GetFunction(callee_context));
+        info.GetReturnValue().Set(callee);
+    }
+
     v8::Local<v8::FunctionTemplate> FunctionTemplate::value(v8::Isolate* isolate) const {
         return _value.Get(isolate);
     }
@@ -339,6 +381,6 @@ namespace dragiyski::node_ext {
     }
 
     FunctionTemplate::FunctionTemplate(v8::Isolate* isolate, v8::Local<v8::FunctionTemplate> value, v8::Local<v8::Function> callee) :
-    _value(isolate, value),
-    _callee(isolate, callee) {}
+        _value(isolate, value),
+        _callee(isolate, callee) {}
 }

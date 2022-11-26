@@ -20,7 +20,7 @@ namespace js {
     private:
         Shared<v8::Object> _holder;
     public:
-        static get_symbol(v8::Isolate *isolate);
+        static v8::Local<v8::Private> get_symbol(v8::Isolate *isolate);
         v8::Local<v8::Object> get_holder(v8::Isolate* isolate);
         static v8::MaybeLocal<v8::Object> get_holder(v8::Isolate* isolate, v8::Local<v8::Object> self, v8::Local<v8::FunctionTemplate> class_template, const char *type_name);
         template<typename T>
