@@ -15,6 +15,7 @@ namespace dragiyski::node_ext {
     public:
         static v8::Local<v8::FunctionTemplate> get_class_template(v8::Isolate* isolate);
         static v8::Local<v8::Private> get_class_symbol(v8::Isolate* isolate);
+        static v8::MaybeLocal<v8::Object> get_context_holder(v8::Local<v8::Context> context, v8::Local<v8::Context> target_context);
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void static_get_current(const v8::FunctionCallbackInfo<v8::Value>& info);

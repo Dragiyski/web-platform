@@ -48,7 +48,7 @@ namespace js {
         delete wrapper;
     }
 
-    v8::Local<v8::Private> Wrapper::get_symbol(v8::Isolate *isolate) {
+    v8::Local<v8::Private> Wrapper::get_this_symbol(v8::Isolate *isolate) {
         assert(per_isolate_wrapper_symbol.contains(isolate));
         return per_isolate_wrapper_symbol[isolate].Get(isolate);
     }

@@ -54,7 +54,7 @@
         variable = js::maybe<decltype(__js_expression_return_with_error_prefix_maybe__)>::value(__js_expression_return_with_error_prefix_maybe__);\
     }
 
-#define JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(variable, code, context, ...)\
+#define JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(code, context, ...)\
     {\
         auto __js_expression_return_maybe__ = try_catch_prefix_message<js::maybe<decltype(code)>::maybe_type>((context), [&]()->js::maybe<decltype(code)>::maybe_type {\
             return code;\

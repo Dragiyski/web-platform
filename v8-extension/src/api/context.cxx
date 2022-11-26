@@ -113,7 +113,7 @@ namespace dragiyski::node_ext {
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
-        
+
         // TODO: Allow single argument - a wrapper for object template or function template (whose InstanceTemplate would be used).
         // if (info.Length() < 1) {
         //     JS_THROW_ERROR(TypeError, isolate, "1 argument required, but only ", info.Length(), " present.");
@@ -143,6 +143,10 @@ namespace dragiyski::node_ext {
             v8::DeserializeInternalFieldsCallback(),
             context->GetMicrotaskQueue()
         );
+
+        JS_EXPRESSION_IGNORE(new_context->Global()->SetPrivate(context, Context::get_class_symbol(isolate), holder));
+        JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_this_symbol(isolate), info.This()));
+
         new_context->SetSecurityToken(context->GetSecurityToken());
         auto wrapper = new Context(isolate, new_context);
         wrapper->Wrap(isolate, holder);
@@ -156,46 +160,55 @@ namespace dragiyski::node_ext {
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
 
-        auto global = context->Global();
-        auto class_symbol = get_class_symbol(isolate);
+        JS_EXPRESSION_RETURN(holder, get_context_holder(context, context));
+        JS_EXPRESSION_RETURN(self, holder->GetPrivate(context, Wrapper::get_this_symbol(isolate)));
+        info.GetReturnValue().Set(self);
+        return;
+    }
 
+    v8::MaybeLocal<v8::Object> Context::get_context_holder(v8::Local<v8::Context> context, v8::Local<v8::Context> target_context) {
+        using __function_return_type__ = v8::MaybeLocal<v8::Object>;
+        auto isolate = context->GetIsolate();
+        auto global = target_context->Global();
+        auto class_symbol = Context::get_class_symbol(isolate);
         {
-            JS_EXPRESSION_RETURN(has_holder, global->HasPrivate(context, class_symbol));
+            JS_EXPRESSION_RETURN(has_holder, global->HasPrivate(target_context, class_symbol));
             if (!has_holder) {
                 goto create_new_holder;
             }
-            JS_EXPRESSION_RETURN(existing_holder, global->GetPrivate(context, class_symbol));
+            JS_EXPRESSION_RETURN(existing_holder, global->GetPrivate(target_context, class_symbol));
             if V8_UNLIKELY(!existing_holder->IsObject()) {
-                JS_EXPRESSION_IGNORE(global->DeletePrivate(context, class_symbol));
+                JS_EXPRESSION_IGNORE(global->DeletePrivate(target_context, class_symbol));
                 goto create_new_holder;
             }
             auto wrapper = Wrapper::Unwrap<Context>(isolate, existing_holder.As<v8::Object>());
             if V8_UNLIKELY(wrapper == nullptr) {
-                JS_EXPRESSION_IGNORE(global->DeletePrivate(context, class_symbol));
+                JS_EXPRESSION_IGNORE(global->DeletePrivate(target_context, class_symbol));
                 goto create_new_holder;
             }
-            auto context = wrapper->get_value(isolate);
+            auto wrapper_value = wrapper->get_value(isolate);
             if V8_UNLIKELY(context.IsEmpty()) {
-                JS_EXPRESSION_IGNORE(global->DeletePrivate(context, class_symbol));
+                JS_EXPRESSION_IGNORE(global->DeletePrivate(target_context, class_symbol));
                 Wrapper::dispose(isolate, wrapper);
                 goto create_new_holder;
             }
-            if V8_UNLIKELY(!context->Global()->SameValue(global)) {
-                JS_EXPRESSION_IGNORE(global->DeletePrivate(context, class_symbol));
+            if V8_UNLIKELY(!wrapper_value->Global()->SameValue(global)) {
+                JS_EXPRESSION_IGNORE(global->DeletePrivate(target_context, class_symbol));
                 Wrapper::dispose(isolate, wrapper);
                 goto create_new_holder;
             }
-            info.GetReturnValue().Set(existing_holder);
-            return;
+            return existing_holder.As<v8::Object>();
         }
     create_new_holder:
         {
             auto class_template = get_class_template(isolate);
+            // Instances must be created in the control context, otherwise access checks may fail.
             JS_EXPRESSION_RETURN(holder, class_template->InstanceTemplate()->NewInstance(context));
-            JS_EXPRESSION_IGNORE(global->SetPrivate(context, class_symbol, holder));
-            auto wrapper = new Context(isolate, context);
+            JS_EXPRESSION_IGNORE(global->SetPrivate(target_context, class_symbol, holder));
+            JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_this_symbol(isolate), holder));
+            auto wrapper = new Context(isolate, target_context);
             wrapper->Wrap(isolate, holder);
-            info.GetReturnValue().Set(holder);
+            return holder;
         }
     }
 
@@ -216,47 +229,14 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().SetUndefined();
         // Might return empty handle with no exception, in this case, undefined is returned.
         JS_EXPRESSION_RETURN(creation_context, object->GetCreationContext());
-        auto class_symbol = get_class_symbol(isolate);
-        auto global = creation_context->Global();
-
-        {
-            JS_EXPRESSION_RETURN(has_holder, global->HasPrivate(context, class_symbol));
-            if (!has_holder) {
-                goto create_new_holder;
-            }
-            JS_EXPRESSION_RETURN(existing_holder, global->GetPrivate(context, class_symbol));
-            if V8_UNLIKELY(!existing_holder->IsObject()) {
-                JS_EXPRESSION_IGNORE(global->DeletePrivate(context, class_symbol));
-                goto create_new_holder;
-            }
-            auto wrapper = Wrapper::Unwrap<Context>(isolate, existing_holder.As<v8::Object>());
-            if V8_UNLIKELY(wrapper == nullptr) {
-                JS_EXPRESSION_IGNORE(global->DeletePrivate(context, class_symbol));
-                goto create_new_holder;
-            }
-            auto context = wrapper->get_value(isolate);
-            if V8_UNLIKELY(context.IsEmpty()) {
-                JS_EXPRESSION_IGNORE(global->DeletePrivate(context, class_symbol));
-                Wrapper::dispose(isolate, wrapper);
-                goto create_new_holder;
-            }
-            if V8_UNLIKELY(!context->Global()->SameValue(global)) {
-                JS_EXPRESSION_IGNORE(global->DeletePrivate(context, class_symbol));
-                Wrapper::dispose(isolate, wrapper);
-                goto create_new_holder;
-            }
-            info.GetReturnValue().Set(existing_holder);
+        if (creation_context.IsEmpty()) {
             return;
         }
-    create_new_holder:
-        {
-            auto class_template = get_class_template(isolate);
-            JS_EXPRESSION_RETURN(holder, class_template->InstanceTemplate()->NewInstance(context));
-            JS_EXPRESSION_IGNORE(global->SetPrivate(context, class_symbol, holder));
-            auto wrapper = new Context(isolate, context);
-            wrapper->Wrap(isolate, holder);
-            info.GetReturnValue().Set(holder);
-        }
+
+        JS_EXPRESSION_RETURN(holder, get_context_holder(context, creation_context));
+        JS_EXPRESSION_RETURN(self, holder->GetPrivate(context, Wrapper::get_this_symbol(isolate)));
+        info.GetReturnValue().Set(self);
+        return;
     }
 
     void Context::prototype_get_global(const v8::FunctionCallbackInfo<v8::Value>& info) {

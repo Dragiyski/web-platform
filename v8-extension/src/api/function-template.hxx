@@ -45,8 +45,8 @@ namespace dragiyski::node_ext {
         Shared<v8::FunctionTemplate> _value;
         Shared<v8::Function> _callee;
     public:
-        v8::Local<v8::FunctionTemplate> value(v8::Isolate *isolate) const;
-        v8::Local<v8::Function> callee(v8::Isolate *isolate) const;
+        v8::Local<v8::FunctionTemplate> get_value(v8::Isolate *isolate) const;
+        v8::Local<v8::Function> get_callee(v8::Isolate *isolate) const;
     protected:
         FunctionTemplate(v8::Isolate* isolate, v8::Local<v8::FunctionTemplate> value, v8::Local<v8::Function> callee);
         FunctionTemplate(const FunctionTemplate&) = delete;

@@ -39,13 +39,7 @@ namespace dragiyski::node_ext {
      */
     class Template {
     public:
-        static void initialize(v8::Isolate* isolate);
-        static void uninitialize(v8::Isolate* isolate);
-    public:
-        static v8::Local<v8::FunctionTemplate> get_class_template(v8::Isolate* isolate);
-        static v8::Local<v8::Private> get_class_symbol(v8::Isolate* isolate);
-    private:
-        static void constructor(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static v8::Maybe<void> ConfigureTemplate(v8::Local<v8::Context> context, v8::Local<v8::Template> value, v8::Local<v8::Value> properties);
     public:
         class AccessorProperty;
         class NativeDataProperty;

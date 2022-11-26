@@ -1,6 +1,7 @@
 #include "function-template.hxx"
 
 #include "context.hxx"
+#include "template.hxx"
 
 #include "../js-string-table.hxx"
 #include "../error-message.hxx"
@@ -132,7 +133,7 @@ namespace dragiyski::node_ext {
                     context,
                     "In option \"receiver\""
                 );
-                auto value = wrapper->value(isolate);
+                auto value = wrapper->get_value(isolate);
                 if (value.IsEmpty()) {
                     JS_THROW_ERROR(ReferenceError, isolate, "option \"receiver\": ", "[object FunctionTemplate] no longer references v8::FunctionTemplate");
                 }
@@ -197,7 +198,7 @@ namespace dragiyski::node_ext {
                     context,
                     "In option \"inherit\""
                 );
-                auto value = wrapper->value(isolate);
+                auto value = wrapper->get_value(isolate);
                 if (value.IsEmpty()) {
                     JS_THROW_ERROR(ReferenceError, isolate, "option \"receiver\": ", "[object FunctionTemplate] no longer references v8::FunctionTemplate");
                 }
@@ -230,7 +231,7 @@ namespace dragiyski::node_ext {
                     context,
                     "In option \"prototypeTemplate\""
                 );
-                auto value = wrapper->value(isolate);
+                auto value = wrapper->get_value(isolate);
                 if (value.IsEmpty()) {
                     JS_THROW_ERROR(ReferenceError, isolate, "option \"prototype\": ", "[object FunctionTemplate] no longer references v8::FunctionTemplate");
                 }
@@ -272,13 +273,25 @@ namespace dragiyski::node_ext {
             }
         }
 
+        v8::Local<v8::Object> properties;
+        {
+            auto name = StringTable::Get(isolate, "properties");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                if (!js_value->IsObject()) {
+                    JS_THROW_ERROR(TypeError, isolate, "option \"properties\": not an object.");
+                }
+                properties = js_value.As<v8::Object>();
+            }
+        }
+
         // TODO: For properties "instance" and "prototype" that accept the same options format as the ObjectTemplate;
         // "prototype" is only allowed when constructor == true and prototype_provider.IsEmpty()
         // "instance" is always allowed.
 
-        JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_symbol(isolate), info.This()))
+        JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_this_symbol(isolate), info.This()));
 
-            auto template_value = v8::FunctionTemplate::New(isolate, callback, holder, signature, length, constructor_behavior, side_effect_type);
+        auto template_value = v8::FunctionTemplate::New(isolate, callback, holder, signature, length, constructor_behavior, side_effect_type);
         if (!name.IsEmpty()) {
             template_value->SetClassName(name);
         }
@@ -291,6 +304,13 @@ namespace dragiyski::node_ext {
         template_value->SetAcceptAnyReceiver(accept_any_receiver);
         if (readonly_prototype) {
             template_value->ReadOnlyPrototype();
+        }
+        if (!properties.IsEmpty()) {
+            JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(
+                Template::ConfigureTemplate(context, template_value, properties),
+                context,
+                "option \"properties\""
+            )
         }
 
         auto wrapper = new FunctionTemplate(isolate, template_value, function);
@@ -305,8 +325,12 @@ namespace dragiyski::node_ext {
 
         auto holder = info.Data().As<v8::Object>();
         auto wrapper = Wrapper::Unwrap<FunctionTemplate>(isolate, holder);
-        JS_EXPRESSION_RETURN(self, holder->GetPrivate(context, Wrapper::get_symbol(isolate)));
-        auto callee = wrapper->callee(isolate);
+        JS_EXPRESSION_RETURN(self, holder->GetPrivate(context, Wrapper::get_this_symbol(isolate)));
+        auto api_callee = wrapper->get_callee(isolate);
+
+        JS_EXPRESSION_RETURN(control_context, holder->GetCreationContext());
+        JS_EXPRESSION_RETURN(context_holder, Context::get_context_holder(control_context, context));
+        JS_EXPRESSION_RETURN(context_self, context_holder->GetPrivate(control_context, Wrapper::get_this_symbol(isolate)));
 
         v8::Local<v8::Value> arguments_list[info.Length()];
         for (decltype(info.Length()) i = 0; i < info.Length(); ++i) {
@@ -323,6 +347,8 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "arguments"),
                 StringTable::Get(isolate, "newTarget"),
                 StringTable::Get(isolate, "callee"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "context"),
             };
             v8::Local<v8::Value> values[] = {
                 v8::Boolean::New(isolate, info.IsConstructCall()),
@@ -330,12 +356,14 @@ namespace dragiyski::node_ext {
                 info.Holder(),
                 arguments,
                 info.NewTarget(),
-                info.Data()
+                api_callee,
+                self,
+                context_self
             };
-            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, 6);
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Value>));
         }
         v8::Local<v8::Value> call_args[] = { call_data };
-        JS_EXPRESSION_RETURN(return_value, callee->Call(context, self, 1, call_args));
+        JS_EXPRESSION_RETURN(return_value, api_callee->Call(context, v8::Undefined(isolate), 1, call_args));
         info.GetReturnValue().Set(return_value);
     }
 
@@ -368,15 +396,16 @@ namespace dragiyski::node_ext {
             }
         }
 
-        auto callee_template = wrapper->value(isolate);
+        auto callee_template = wrapper->get_value(isolate);
         JS_EXPRESSION_RETURN(callee, callee_template->GetFunction(callee_context));
+        JS_EXPRESSION_IGNORE(callee->SetPrivate(context, Wrapper::get_this_symbol(isolate), info.Holder()));
         info.GetReturnValue().Set(callee);
     }
 
-    v8::Local<v8::FunctionTemplate> FunctionTemplate::value(v8::Isolate* isolate) const {
+    v8::Local<v8::FunctionTemplate> FunctionTemplate::get_value(v8::Isolate* isolate) const {
         return _value.Get(isolate);
     }
-    v8::Local<v8::Function> FunctionTemplate::callee(v8::Isolate* isolate) const {
+    v8::Local<v8::Function> FunctionTemplate::get_callee(v8::Isolate* isolate) const {
         return _callee.Get(isolate);
     }
 

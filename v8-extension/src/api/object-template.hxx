@@ -20,7 +20,7 @@ namespace dragiyski::node_ext {
     private:
         Shared<v8::ObjectTemplate> _value;
     public:
-        v8::Local<v8::ObjectTemplate> value(v8::Isolate *isolate) const;
+        v8::Local<v8::ObjectTemplate> get_value(v8::Isolate *isolate) const;
     protected:
         ObjectTemplate(v8::Isolate* isolate, v8::Local<v8::ObjectTemplate> value);
         ObjectTemplate(const ObjectTemplate&) = delete;

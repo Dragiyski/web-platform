@@ -27,6 +27,8 @@ namespace dragiyski::node_ext {
         v8::Local<v8::Object> get_getter_object(v8::Isolate* isolate) const;
         v8::Local<v8::Object> get_setter_object(v8::Isolate* isolate) const;
         v8::PropertyAttribute get_attributes() const;
+        // TODO: We might want the class itself to initialize a template.
+        // For this, given context/isolate and a v8::Template, a property would be set.
     public:
         void apply(v8::Isolate *isolate, v8::Local<v8::Template> receiver);
     protected:
