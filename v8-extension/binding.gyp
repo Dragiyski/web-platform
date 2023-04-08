@@ -9,7 +9,7 @@
             "cflags_cc!": [
                 "-fno-rtti",
                 "-fno-exceptions",
-                "-std=gnu++17"
+                "-std=c++20"
             ],
             "sources": [
                 "src/main.cxx",

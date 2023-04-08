@@ -47,4 +47,4 @@ namespace dragiyski::node_ext {
     };
 }
 
-#endif NODE_EXT_API_TEMPLATE_HXX
+#endif /* NODE_EXT_API_TEMPLATE_HXX */

@@ -69,7 +69,6 @@ namespace dragiyski::node_ext {
                 }
             } else if (name->IsString() || name->IsSymbol()) {
                 if (value->IsObject()) {
-
                 }
             }
         }

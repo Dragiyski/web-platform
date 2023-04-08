@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <typeinfo>
 #include <utility>
+#include <system_error>
 #include <type_traits>
 #include <v8.h>
 
@@ -85,7 +86,7 @@
 
 namespace js {
     template<typename T>
-    using Shared = v8::CopyablePersistentTraits<T>::CopyablePersistent;
+    using Shared = typename v8::CopyablePersistentTraits<T>::CopyablePersistent;
 
     template<typename T>
     using Unique = v8::Global<T>;
