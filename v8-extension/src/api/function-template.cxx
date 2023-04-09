@@ -19,7 +19,7 @@ namespace dragiyski::node_ext {
         assert(!per_isolate_class_template.contains(isolate));
         assert(!per_isolate_class_symbol.contains(isolate));
 
-        auto class_name = ::js::StringTable::Get(isolate, "FunctionTemplate");
+        auto class_name = ::js::StringTable::Get<"FunctionTemplate">(isolate);
         auto class_cache = v8::Private::New(isolate, class_name);
         auto class_template = v8::FunctionTemplate::NewWithCache(
             isolate,
@@ -31,7 +31,7 @@ namespace dragiyski::node_ext {
         auto signature = v8::Signature::New(isolate, class_template);
         auto prototype_template = class_template->PrototypeTemplate();
         {
-            auto name = StringTable::Get(isolate, "get");
+            auto name = StringTable::Get<"get">(isolate);
             auto value = v8::FunctionTemplate::New(
                 isolate,
                 prototype_get,
@@ -81,7 +81,7 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         if (!info.IsConstructCall()) {
-            auto message = StringTable::Get(isolate, "Illegal constructor");
+            auto message = StringTable::Get<"Illegal constructor">(isolate);
             JS_THROW_ERROR(TypeError, isolate, message);
         }
         info.GetReturnValue().Set(info.This());
@@ -91,7 +91,7 @@ namespace dragiyski::node_ext {
 
         auto holder = info.This()->FindInstanceInPrototypeChain(function_template_template);
         if (holder.IsEmpty() || !holder->IsObject() || holder->InternalFieldCount() < 1) {
-            auto message = StringTable::Get(isolate, "Illegal constructor");
+            auto message = StringTable::Get<"Illegal constructor">(isolate);
             JS_THROW_ERROR(TypeError, isolate, message);
         }
 
@@ -107,7 +107,7 @@ namespace dragiyski::node_ext {
         // The FunctionCallback is a C++ function that calls its info.Data()
         v8::Local<v8::Function> function;
         {
-            auto name = StringTable::Get(isolate, "function");
+            auto name = StringTable::Get<"function">(isolate);
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
             if (!value->IsFunction()) {
                 JS_THROW_ERROR(TypeError, isolate, "In required option \"function\": not a function.");
@@ -116,7 +116,7 @@ namespace dragiyski::node_ext {
         }
         v8::Local<v8::Signature> signature;
         {
-            auto name = StringTable::Get(isolate, "receiver");
+            auto name = StringTable::Get<"receiver">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 if (!js_value->IsObject()) {
@@ -143,7 +143,7 @@ namespace dragiyski::node_ext {
 
         int length = 0;
         {
-            auto name = StringTable::Get(isolate, "length");
+            auto name = StringTable::Get<"length">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Int32Value(context), context, "In option \"length\"");
@@ -153,7 +153,7 @@ namespace dragiyski::node_ext {
 
         bool is_constructor = true;
         {
-            auto name = StringTable::Get(isolate, "constructor");
+            auto name = StringTable::Get<"constructor">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 is_constructor = js_value->BooleanValue(isolate);
@@ -163,7 +163,7 @@ namespace dragiyski::node_ext {
 
         auto side_effect_type = v8::SideEffectType::kHasSideEffect;
         {
-            auto name = StringTable::Get(isolate, "sideEffectType");
+            auto name = StringTable::Get<"sideEffectType">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Int32Value(context), context, "In option \"sideEffectType\"");
@@ -181,7 +181,7 @@ namespace dragiyski::node_ext {
 
         v8::Local<v8::FunctionTemplate> inherit;
         {
-            auto name = StringTable::Get(isolate, "inherit");
+            auto name = StringTable::Get<"inherit">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 if (!js_value->IsObject()) {
@@ -208,7 +208,7 @@ namespace dragiyski::node_ext {
 
         v8::Local<v8::FunctionTemplate> prototype_provider;
         {
-            auto name = StringTable::Get(isolate, "prototypeTemplate");
+            auto name = StringTable::Get<"prototypeTemplate">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 if (!js_value->IsObject()) {
@@ -241,7 +241,7 @@ namespace dragiyski::node_ext {
 
         v8::Local<v8::String> name;
         {
-            auto property_name = StringTable::Get(isolate, "name");
+            auto property_name = StringTable::Get<"name">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, property_name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN(value, js_value->ToString(context));
@@ -251,7 +251,7 @@ namespace dragiyski::node_ext {
 
         bool readonly_prototype = false;
         {
-            auto name = StringTable::Get(isolate, "readonlyPrototype");
+            auto name = StringTable::Get<"readonlyPrototype">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 auto value = js_value->BooleanValue(isolate);
@@ -266,7 +266,7 @@ namespace dragiyski::node_ext {
 
         bool accept_any_receiver = true;
         {
-            auto name = StringTable::Get(isolate, "readonlyPrototype");
+            auto name = StringTable::Get<"readonlyPrototype">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 accept_any_receiver = js_value->BooleanValue(isolate);
@@ -275,7 +275,7 @@ namespace dragiyski::node_ext {
 
         v8::Local<v8::Object> properties;
         {
-            auto name = StringTable::Get(isolate, "properties");
+            auto name = StringTable::Get<"properties">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 if (!js_value->IsObject()) {
@@ -341,14 +341,14 @@ namespace dragiyski::node_ext {
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
-                StringTable::Get(isolate, "isConstructorCall"),
-                StringTable::Get(isolate, "this"),
-                StringTable::Get(isolate, "holder"),
-                StringTable::Get(isolate, "arguments"),
-                StringTable::Get(isolate, "newTarget"),
-                StringTable::Get(isolate, "callee"),
-                StringTable::Get(isolate, "template"),
-                StringTable::Get(isolate, "context"),
+                StringTable::Get<"isConstructorCall">(isolate),
+                StringTable::Get<"this">(isolate),
+                StringTable::Get<"holder">(isolate),
+                StringTable::Get<"arguments">(isolate),
+                StringTable::Get<"newTarget">(isolate),
+                StringTable::Get<"callee">(isolate),
+                StringTable::Get<"template">(isolate),
+                StringTable::Get<"context">(isolate),
             };
             v8::Local<v8::Value> values[] = {
                 v8::Boolean::New(isolate, info.IsConstructCall()),

@@ -10,7 +10,7 @@ namespace dragiyski::node_ext {
 
         v8::Local<v8::String> source;
         {
-            auto name = StringTable::Get(isolate, "source");
+            auto name = StringTable::Get<"source">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsString()) {
                 JS_THROW_ERROR(TypeError, isolate, "Expected option 'source' to be a string.");
@@ -19,7 +19,7 @@ namespace dragiyski::node_ext {
         }
         v8::Local<v8::Value> location;
         {
-            auto name = StringTable::Get(isolate, "location");
+            auto name = StringTable::Get<"location">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN(value, js_value->ToString(context));
@@ -33,7 +33,7 @@ namespace dragiyski::node_ext {
             int script_id = -1;
             bool is_shared_cross_origin = false, is_opaque = false, is_wasm = false, is_module = false;
             {
-                auto name = StringTable::Get(isolate, "lineOffset");
+                auto name = StringTable::Get<"lineOffset">(isolate);
                 JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
                 if (!js_value->IsNullOrUndefined()) {
                     JS_EXPRESSION_RETURN(value, js_value->Int32Value(context));
@@ -41,7 +41,7 @@ namespace dragiyski::node_ext {
                 }
             }
             {
-                auto name = StringTable::Get(isolate, "columnOffset");
+                auto name = StringTable::Get<"columnOffset">(isolate);
                 JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
                 if (!js_value->IsNullOrUndefined()) {
                     JS_EXPRESSION_RETURN(value, js_value->Int32Value(context));
@@ -49,7 +49,7 @@ namespace dragiyski::node_ext {
                 }
             }
             {
-                auto name = StringTable::Get(isolate, "scriptId");
+                auto name = StringTable::Get<"scriptId">(isolate);
                 JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
                 if (!js_value->IsNullOrUndefined()) {
                     JS_EXPRESSION_RETURN(value, js_value->Int32Value(context));
@@ -57,7 +57,7 @@ namespace dragiyski::node_ext {
                 }
             }
             {
-                auto name = StringTable::Get(isolate, "sourceMapUrl");
+                auto name = StringTable::Get<"sourceMapUrl">(isolate);
                 JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
                 if (!js_value->IsNullOrUndefined()) {
                     JS_EXPRESSION_RETURN(value, js_value->ToString(context));
@@ -65,28 +65,28 @@ namespace dragiyski::node_ext {
                 }
             }
             {
-                auto name = StringTable::Get(isolate, "isSharedCrossOrigin");
+                auto name = StringTable::Get<"isSharedCrossOrigin">(isolate);
                 JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
                 if (!js_value->IsNullOrUndefined()) {
                     is_shared_cross_origin = js_value->BooleanValue(isolate);
                 }
             }
             {
-                auto name = StringTable::Get(isolate, "isOpaque");
+                auto name = StringTable::Get<"isOpaque">(isolate);
                 JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
                 if (!js_value->IsNullOrUndefined()) {
                     is_shared_cross_origin = js_value->BooleanValue(isolate);
                 }
             }
             {
-                auto name = StringTable::Get(isolate, "isWASM");
+                auto name = StringTable::Get<"isWASM">(isolate);
                 JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
                 if (!js_value->IsNullOrUndefined()) {
                     is_shared_cross_origin = js_value->BooleanValue(isolate);
                 }
             }
             {
-                auto name = StringTable::Get(isolate, "isModule");
+                auto name = StringTable::Get<"isModule">(isolate);
                 JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
                 if (!js_value->IsNullOrUndefined()) {
                     is_shared_cross_origin = js_value->BooleanValue(isolate);

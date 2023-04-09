@@ -77,7 +77,7 @@ namespace js {
         assert(try_catch.HasCaught());
         if (try_catch.CanContinue() && !try_catch.Exception().IsEmpty() && try_catch.Exception()->IsNativeError()) {
             auto exception = try_catch.Exception().As<v8::Object>();
-            auto message_property = StringTable::Get(isolate, "message");
+            auto message_property = StringTable::Get<"message">(isolate);
             JS_EXPRESSION_RETURN(old_message_value, exception->Get(context, message_property));
             if (old_message_value->IsString()) {
                 auto old_message = old_message_value.As<v8::String>();

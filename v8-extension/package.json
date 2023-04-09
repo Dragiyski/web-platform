@@ -1,16 +1,15 @@
 {
     "type": "module",
-    "name": "@dragiyski/v8-platform",
+    "name": "@dragiyski/v8-extensions",
     "private": true,
     "devDependencies": {
         "@babel/eslint-parser": "^7.17.0",
-        "eslint": "^8.0.0"
+        "eslint": "^8.0.0",
+        "node-gyp": "^9.3.1"
     },
     "main": "index.js",
     "scripts": {
-        "install": "node-gyp rebuild"
-    },
-    "dependencies": {
-        "node-gyp": "^9.0.0"
+        "install": "node-gyp rebuild",
+        "test": "node test/index.mjs && mkdir -p build/Debug/coverage && lcov -c -b src -d build/Debug -o build/Debug/coverage/trace.lcov --no-external && genhtml -o build/Debug/coverage build/Debug/coverage/trace.lcov"
     }
 }

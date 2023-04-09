@@ -4,16 +4,15 @@
             "target_name": "native",
             "cflags_cc": [
                 "-std=c++20",
-                "-g"
+                "-fno-threadsafe-statics"
             ],
             "cflags_cc!": [
                 "-fno-rtti",
                 "-fno-exceptions",
-                "-std=c++20"
+                "-std=gnu++17"
             ],
             "sources": [
                 "src/main.cxx",
-                "src/js-string-table.cxx",
                 "src/function.cxx",
                 "src/wrapper.cxx",
                 "src/api/private.cxx",
@@ -27,11 +26,14 @@
         "configurations": {
             "Debug": {
                 "defines": [ "DEBUG", "_DEBUG" ],
-                "cflags_cc": [ "-g", "-O0" ],
+                "cflags_cc": [ "-g", "-O0", "--coverage" ],
+                "ldflags": ["--coverage", "-lgcov"],
+                "cflags_cc!": [ "-std=gnu++17" ]
             },
             "Release": {
                 'defines': ['NDEBUG'],
-                "cflags_cc": ["-O3"]
+                "cflags_cc": ["-O3"],
+                "cflags_cc!": [ "-std=gnu++17" ]
             }
         }
     }

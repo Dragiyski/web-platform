@@ -19,7 +19,7 @@ namespace js {
             std::forward_as_tuple()
         );
         {
-            auto name = StringTable::Get(isolate, "wrapper");
+            auto name = StringTable::Get<"wrapper">(isolate);
             auto symbol = v8::Private::New(isolate, name);
             per_isolate_wrapper_symbol.emplace(
                 std::piecewise_construct,
@@ -61,7 +61,7 @@ namespace js {
         using __function_return_type__ = v8::MaybeLocal<v8::Object>;
 
         auto holder = self->FindInstanceInPrototypeChain(class_template);
-        if (!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1) {
+        if V8_LIKELY(!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1) {
             return holder;
         }
         JS_THROW_ERROR(TypeError, isolate, "Failed to convert value to '", type, "'.");

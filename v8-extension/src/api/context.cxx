@@ -14,7 +14,7 @@ namespace dragiyski::node_ext {
         assert(!per_isolate_class_template.contains(isolate));
         assert(!per_isolate_class_symbol.contains(isolate));
 
-        auto class_name = ::js::StringTable::Get(isolate, "Context");
+        auto class_name = ::js::StringTable::Get<"Context">(isolate);
         auto class_cache = v8::Private::New(isolate, class_name);
         auto class_template = v8::FunctionTemplate::NewWithCache(
             isolate,
@@ -25,7 +25,7 @@ namespace dragiyski::node_ext {
         auto prototype_template = class_template->PrototypeTemplate();
         auto signature = v8::Signature::New(isolate, class_template);
         {
-            auto name = StringTable::Get(isolate, "current");
+            auto name = StringTable::Get<"current">(isolate);
             auto getter = v8::FunctionTemplate::New(
                 isolate,
                 static_get_current,
@@ -38,7 +38,7 @@ namespace dragiyski::node_ext {
             class_template->SetAccessorProperty(name, getter, {}, JS_PROPERTY_ATTRIBUTE_STATIC);
         }
         {
-            auto name = StringTable::Get(isolate, "for");
+            auto name = StringTable::Get<"for">(isolate);
             auto value = v8::FunctionTemplate::New(
                 isolate,
                 static_for,
@@ -51,7 +51,7 @@ namespace dragiyski::node_ext {
             class_template->Set(name, value, JS_PROPERTY_ATTRIBUTE_STATIC);
         }
         {
-            auto name = StringTable::Get(isolate, "global");
+            auto name = StringTable::Get<"global">(isolate);
             auto value = v8::FunctionTemplate::New(
                 isolate,
                 prototype_get_global,
@@ -64,7 +64,7 @@ namespace dragiyski::node_ext {
             prototype_template->SetAccessorProperty(name, value, {}, JS_PROPERTY_ATTRIBUTE_STATIC);
         }
         {
-            auto name = StringTable::Get(isolate, "compileFunction");
+            auto name = StringTable::Get<"compileFunction">(isolate);
             auto value = v8::FunctionTemplate::New(
                 isolate,
                 prototype_compile_function,
@@ -131,7 +131,7 @@ namespace dragiyski::node_ext {
 
         auto holder = info.This()->FindInstanceInPrototypeChain(get_class_template(isolate));
         if (holder.IsEmpty() || !holder->IsObject() || holder->InternalFieldCount() < 1) {
-            auto message = StringTable::Get(isolate, "Illegal constructor");
+            auto message = StringTable::Get<"Illegal constructor">(isolate);
             JS_THROW_ERROR(TypeError, isolate, message);
         }
 
@@ -273,7 +273,7 @@ namespace dragiyski::node_ext {
 
         v8::Local<v8::String> function_name;
         {
-            auto name = StringTable::Get(isolate, "name");
+            auto name = StringTable::Get<"name">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 if (!js_value->IsString()) {
@@ -285,7 +285,7 @@ namespace dragiyski::node_ext {
 
         v8::Local<v8::Array> arguments;
         {
-            auto name = StringTable::Get(isolate, "arguments");
+            auto name = StringTable::Get<"arguments">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 if (!js_value->IsArray()) {
@@ -297,7 +297,7 @@ namespace dragiyski::node_ext {
 
         v8::Local<v8::Array> scopes;
         {
-            auto name = StringTable::Get(isolate, "scopes");
+            auto name = StringTable::Get<"scopes">(isolate);
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 if (!js_value->IsArray()) {
