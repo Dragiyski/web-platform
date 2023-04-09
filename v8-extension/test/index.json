@@ -1,0 +1,10 @@
+[
+    {
+        "file": "native/private/class.test.cjs",
+        "name": "Private:class"
+    },
+    {
+        "file": "native/private/methods.test.cjs",
+        "name": "Private:get,set,has,delete"
+    }
+]
