@@ -13,11 +13,14 @@
             ],
             "sources": [
                 "src/main.cxx",
+                "src/js-string-table.cxx",
                 "src/function.cxx",
                 "src/wrapper.cxx",
                 "src/api/private.cxx",
                 "src/api/context.cxx",
                 "src/api/function-template.cxx",
+                "src/api/template.cxx",
+                "src/api/template/native-data-property.cxx",
             ]
         }
     ],

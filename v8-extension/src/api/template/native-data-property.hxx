@@ -10,29 +10,30 @@ namespace dragiyski::node_ext {
     using namespace js;
     class Template::NativeDataProperty : public Wrapper {
     public:
+        static void initialize(v8::Isolate* isolate);
+        static void uninitialize(v8::Isolate* isolate);
+    public:
         static v8::Local<v8::FunctionTemplate> get_class_template(v8::Isolate* isolate);
         static v8::Local<v8::Private> get_class_symbol(v8::Isolate* isolate);
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void getter_callback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info);
+        static void setter_callback(v8::Local<v8::Name> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
     private:
         Shared<v8::Function> _getter;
         Shared<v8::Function> _setter;
         v8::PropertyAttribute _attributes;
         v8::AccessControl _access_control;
-        Shared<v8::Object> _signature_object;
-        Shared<v8::Signature> _signature;
-        v8::SideEffectType _getter_side_effct, _setter_side_effect;
+        v8::SideEffectType _getter_side_effect, _setter_side_effect;
     public:
         v8::Local<v8::Function> get_getter(v8::Isolate* isolate) const;
         v8::Local<v8::Function> get_setter(v8::Isolate* isolate) const;
         v8::PropertyAttribute get_attributes() const;
         v8::AccessControl get_access_control() const;
-        v8::Local<v8::Object> get_signature_object(v8::Isolate* isolate) const;
-        v8::Local<v8::Signature> get_signature(v8::Isolate *isolate) const;
         v8::SideEffectType get_getter_side_effect() const;
         v8::SideEffectType get_setter_side_effect() const;
     public:
-        void apply(v8::Isolate* isolate, v8::Local<v8::Template> receiver);
+        v8::Maybe<void> setup(v8::Isolate *isolate, v8::Local<v8::Template> target, v8::Local<v8::Name> name, v8::Local<v8::Object> js_template_wrapper) const;
     protected:
         NativeDataProperty(
             v8::Isolate *isolate,
@@ -40,8 +41,6 @@ namespace dragiyski::node_ext {
             v8::Local<v8::Function> setter,
             v8::PropertyAttribute attributes,
             v8::AccessControl access_control,
-            v8::Local<v8::Object> signature_object,
-            v8::Local<v8::Signature> signature,
             v8::SideEffectType getter_side_effect,
             v8::SideEffectType setter_side_effect
         );

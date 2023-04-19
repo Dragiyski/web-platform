@@ -29,51 +29,80 @@ namespace dragiyski::node_ext {
                     "Invalid key type, expected object instance of \"Private\""
                 )
                 auto private_value = private_wrapper->get_value(isolate);
-                if (private_value.IsEmpty()) {
+                if V8_UNLIKELY(private_value.IsEmpty()) {
                     JS_THROW_ERROR(ReferenceError, isolate, "[object Private] no longer references v8::Private");
                 }
+                // For now the class hierarchy of the v8::Value is one of:
+                // - Object
+                // - External
+                // - Primitive
                 if (value->IsObject()) {
-                    auto object = value.As<v8::Object>();
-                    auto function_template_holder = object->FindInstanceInPrototypeChain(FunctionTemplate::get_class_template(isolate));
-                    if (!function_template_holder.IsEmpty()) {
-                        auto function_template_wrapper = Wrapper::Unwrap<FunctionTemplate>(isolate, function_template_holder);
-                        if (function_template_wrapper == nullptr) {
-                            JS_THROW_ERROR(ReferenceError, isolate, "[object FunctionTemplate] no longer wraps a native object");
+                    {
+                        JS_EXPRESSION_RETURN(wrapper, Wrapper::TryUnwrap<FunctionTemplate>(isolate, value.As<v8::Object>(), FunctionTemplate::get_class_template(isolate)));
+                        if V8_UNLIKELY(wrapper != nullptr) {
+                            auto js_value = wrapper->get_value(isolate);
+                            if V8_UNLIKELY(js_value.IsEmpty()) {
+                                JS_THROW_ERROR(ReferenceError, isolate, "[object FunctionTemplate] no longer references v8::FunctionTemplate");
+                            }
+                            target->SetPrivate(private_value, js_value);
+                            return v8::JustVoid();
                         }
-                        auto function_template = function_template_wrapper->get_value(isolate);
-                        if (function_template.IsEmpty()) {
-                            JS_THROW_ERROR(ReferenceError, isolate, "[object FunctionTemplate] no longer references v8::FunctionTemplate");
-                        }
-                        target->SetPrivate(private_value, function_template);
-                        return v8::JustVoid();
                     }
-                    auto object_template_holder = object->FindInstanceInPrototypeChain(ObjectTemplate::get_class_template(isolate));
-                    if (!object_template_holder.IsEmpty()) {
-                        auto object_template_wrapper = Wrapper::Unwrap<ObjectTemplate>(isolate, object_template_holder);
-                        if (object_template_wrapper == nullptr) {
-                            JS_THROW_ERROR(ReferenceError, isolate, "[object ObjectTemplate] no longer wraps a native object");
+                    {
+                        JS_EXPRESSION_RETURN(wrapper, Wrapper::TryUnwrap<ObjectTemplate>(isolate, value.As<v8::Object>(), ObjectTemplate::get_class_template(isolate)));
+                        if V8_UNLIKELY(wrapper != nullptr) {
+                            auto js_value = wrapper->get_value(isolate);
+                            if V8_UNLIKELY(js_value.IsEmpty()) {
+                                JS_THROW_ERROR(ReferenceError, isolate, "[object ObjectTemplate] no longer references v8::FunctionTemplate");
+                            }
+                            target->SetPrivate(private_value, js_value);
+                            return v8::JustVoid();
                         }
-                        auto object_template = object_template_wrapper->get_value(isolate);
-                        if (object_template.IsEmpty()) {
-                            JS_THROW_ERROR(ReferenceError, isolate, "[object ObjectTemplate] no longer references v8::ObjectTemplate");
-                        }
-                        target->SetPrivate(private_value, object_template);
-                        return v8::JustVoid();
                     }
                     JS_THROW_ERROR(TypeError, isolate, "Template::SetPrivate can only be set to [object FunctionTemplate], [object ObjectTemplate] or primitive value");
-                } else if (value->IsExternal()) {
+                } else if V8_UNLIKELY(value->IsExternal()) {
                     JS_THROW_ERROR(TypeError, isolate, "Template::SetPrivate can only be set to [object FunctionTemplate], [object ObjectTemplate] or primitive value");
-                } else {
-                    // Primitive value:
+                } else /* v8::Primitive */ {
                     target->SetPrivate(private_value, value);
                 }
             } else if (name->IsString() || name->IsSymbol()) {
+                // Accepted values are the same as above + additional helper objects:
+                // A primitive, FunctionTemplate or ObjectTemplate object wrapper will call Set() to set a property;
+                // An AccessorProperty, LazyDataProperty or NativeDataProperty object that wraps a value for the property, calls corrensponding Set* method.
                 if (value->IsObject()) {
+                    {
+                        JS_EXPRESSION_RETURN(wrapper, Wrapper::TryUnwrap<FunctionTemplate>(isolate, value.As<v8::Object>(), FunctionTemplate::get_class_template(isolate)));
+                        if V8_UNLIKELY(wrapper != nullptr) {
+                            auto js_value = wrapper->get_value(isolate);
+                            if V8_UNLIKELY(js_value.IsEmpty()) {
+                                JS_THROW_ERROR(ReferenceError, isolate, "[object FunctionTemplate] no longer references v8::FunctionTemplate");
+                            }
+                            target->Set(name.As<v8::Name>(), js_value);
+                            return v8::JustVoid();
+                        }
+                    }
+                    {
+                        JS_EXPRESSION_RETURN(wrapper, Wrapper::TryUnwrap<ObjectTemplate>(isolate, value.As<v8::Object>(), ObjectTemplate::get_class_template(isolate)));
+                        if V8_UNLIKELY(wrapper != nullptr) {
+                            auto js_value = wrapper->get_value(isolate);
+                            if V8_UNLIKELY(js_value.IsEmpty()) {
+                                JS_THROW_ERROR(ReferenceError, isolate, "[object ObjectTemplate] no longer references v8::FunctionTemplate");
+                            }
+                            target->Set(name.As<v8::Name>(), js_value);
+                            return v8::JustVoid();
+                        }
+                    }
+                    {
+                        JS_EXPRESSION_RETURN(wrapper, Wrapper::TryUnwrap<Template::NativeDataProperty>(isolate, value.As<v8::Object>(), Template::NativeDataProperty::get_class_template(isolate)));
+                        if V8_UNLIKELY(wrapper != nullptr) {
+                            wrapper->setup(isolate, target, name.As<v8::Name>(), value.As<v8::Object>());
+                        }
+                    }
                 }
             }
         }
         v8::Maybe<void> ConfigureFromMap(v8::Local<v8::Context> context, v8::Local<v8::Template> target, v8::Local<v8::Map> properties) {
-            static constexpr const auto __function_return_type__ = v8::Nothing<void>;
+            static const constexpr auto __function_return_type__ = v8::Nothing<void>;
             auto isolate = context->GetIsolate();
 
             auto entries = properties->AsArray();
@@ -82,32 +111,35 @@ namespace dragiyski::node_ext {
                 JS_EXPRESSION_RETURN(value, entries->Get(context, i + 1));
                 JS_EXPRESSION_IGNORE(ConfigureEntry(context, target, name, value));
             }
+            return v8::JustVoid();
         }
         v8::Maybe<void> ConfigureFromObject(v8::Local<v8::Context> context, v8::Local<v8::Template> target, v8::Local<v8::Object> properties) {
-            static constexpr const auto __function_return_type__ = v8::Nothing<void>;
+            static const constexpr auto __function_return_type__ = v8::Nothing<void>;
             auto isolate = context->GetIsolate();
 
             JS_EXPRESSION_RETURN(names, properties->GetPropertyNames(context));
             for (decltype(names->Length()) i = 0; i < names->Length(); ++i) {
                 JS_EXPRESSION_RETURN(name, names->Get(context, i));
-                JS_EXPRESSION_RETURN(value, properties->Get(name, i));
+                JS_EXPRESSION_RETURN(value, properties->Get(context, name));
                 JS_EXPRESSION_IGNORE(ConfigureEntry(context, target, name, value));
             }
+            return v8::JustVoid();
         }
     }
 
     v8::Maybe<void> Template::ConfigureTemplate(v8::Local<v8::Context> context, v8::Local<v8::Template> target, v8::Local<v8::Value> properties) {
-        static constexpr const auto __function_return_type__ = v8::Nothing<void>;
+        static const constexpr auto __function_return_type__ = v8::Nothing<void>;
         auto isolate = context->GetIsolate();
         v8::HandleScope scope(isolate);
 
         if (properties->IsMap()) {
             JS_EXPRESSION_IGNORE(ConfigureFromMap(context, target, properties.As<v8::Map>()));
-        } else if (properties->IsObject()) {
-            JS_EXPRESSION_IGNORE(ConfigureFromObject(context, target, properties.As<v8::Object>()));
-        } else {
-            JS_THROW_ERROR(TypeError, isolate, 'Cannot convert value to [object Map] or [object Object].');
+            return v8::JustVoid();
         }
-        return v8::JustVoid();
+        if (properties->IsObject()) {
+            JS_EXPRESSION_IGNORE(ConfigureFromObject(context, target, properties.As<v8::Object>()));
+            return v8::JustVoid();
+        }
+        JS_THROW_ERROR(TypeError, isolate, 'Cannot convert value to [object Map] or [object Object].');
     }
 }

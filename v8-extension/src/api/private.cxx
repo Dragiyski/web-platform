@@ -14,7 +14,7 @@ namespace dragiyski::node_ext {
         assert(!per_isolate_class_template.contains(isolate));
         assert(!per_isolate_class_symbol.contains(isolate));
 
-        auto class_name = ::js::StringTable::Get<"Private">(isolate);
+        auto class_name = StringTable::Get(isolate, "Private");
         auto class_cache = v8::Private::New(isolate, class_name);
         auto class_template = v8::FunctionTemplate::NewWithCache(
             isolate,
@@ -25,7 +25,7 @@ namespace dragiyski::node_ext {
         auto prototype_template = class_template->PrototypeTemplate();
         auto signature = v8::Signature::New(isolate, class_template);
         {
-            auto name = StringTable::Get<"get">(isolate);
+            auto name = StringTable::Get(isolate, "get");
             auto value = v8::FunctionTemplate::New(
                 isolate,
                 prototype_get,
@@ -37,7 +37,7 @@ namespace dragiyski::node_ext {
             prototype_template->Set(name, value, JS_PROPERTY_ATTRIBUTE_STATIC);
         }
         {
-            auto name = StringTable::Get<"set">(isolate);
+            auto name = StringTable::Get(isolate, "set");
             auto value = v8::FunctionTemplate::New(
                 isolate,
                 prototype_set,
@@ -49,7 +49,7 @@ namespace dragiyski::node_ext {
             prototype_template->Set(name, value, JS_PROPERTY_ATTRIBUTE_STATIC);
         }
         {
-            auto name = StringTable::Get<"has">(isolate);
+            auto name = StringTable::Get(isolate, "has");
             auto value = v8::FunctionTemplate::New(
                 isolate,
                 prototype_has,
@@ -61,7 +61,7 @@ namespace dragiyski::node_ext {
             prototype_template->Set(name, value, JS_PROPERTY_ATTRIBUTE_STATIC);
         }
         {
-            auto name = StringTable::Get<"delete">(isolate);
+            auto name = StringTable::Get(isolate, "delete");
             auto value = v8::FunctionTemplate::New(
                 isolate,
                 prototype_delete,
@@ -110,9 +110,10 @@ namespace dragiyski::node_ext {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
 
         if V8_UNLIKELY(!info.IsConstructCall()) {
-            auto message = StringTable::Get<"Illegal constructor">(isolate);
+            auto message = StringTable::Get(isolate, "Illegal constructor");
             JS_THROW_ERROR(TypeError, isolate, message);
         }
 
@@ -122,7 +123,7 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().Set(self);
         auto holder = info.This()->FindInstanceInPrototypeChain(self_template);
         if V8_UNLIKELY(holder.IsEmpty() || !holder->IsObject() || holder->InternalFieldCount() < 1) {
-            auto message = StringTable::Get<"Illegal constructor">(isolate);
+            auto message = StringTable::Get(isolate, "Illegal constructor");
             JS_THROW_ERROR(TypeError, isolate, message);
         }
 
@@ -133,6 +134,8 @@ namespace dragiyski::node_ext {
             }
             name = info[0].As<v8::String>();
         }
+
+        JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_this_symbol(isolate), info.This()));
 
         auto value = v8::Private::New(isolate, name);
         auto wrapper = new Private(isolate, value);

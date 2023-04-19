@@ -15,7 +15,7 @@ namespace dragiyski::node_ext {
         assert(!per_isolate_class_template.contains(isolate));
         assert(!per_isolate_class_symbol.contains(isolate));
 
-        auto class_name = ::js::StringTable::Get<"UserContext">(isolate);
+        auto class_name = ::js::StringTable::Get(isolate, "UserContext");
         auto class_cache = v8::Private::New(isolate, class_name);
         auto class_template = v8::FunctionTemplate::NewWithCache(
             isolate,
@@ -27,7 +27,7 @@ namespace dragiyski::node_ext {
         auto prototype_template = class_template->PrototypeTemplate();
         auto signature = v8::Signature::New(isolate, class_template);
         {
-            auto name = StringTable::Get<"maxEntryTime">(isolate);
+            auto name = StringTable::Get(isolate, "maxEntryTime");
             auto getter = v8::FunctionTemplate::New(
                 isolate,
                 prototype_get_max_entry_time,
@@ -51,7 +51,7 @@ namespace dragiyski::node_ext {
             prototype_template->SetAccessorProperty(name, getter, setter, JS_PROPERTY_ATTRIBUTE_SEAL);
         }
         {
-            auto name = StringTable::Get<"maxUserTime">(isolate);
+            auto name = StringTable::Get(isolate, "maxUserTime");
             auto getter = v8::FunctionTemplate::New(
                 isolate,
                 prototype_get_max_user_time,

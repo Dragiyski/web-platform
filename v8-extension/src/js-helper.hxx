@@ -65,7 +65,7 @@
     typename js::maybe<decltype(code)>::type variable;\
     {\
         auto __js_expression_return_maybe__ = code;\
-        if (!js::maybe<decltype(__js_expression_return_maybe__)>::is_valid(__js_expression_return_maybe__)) {\
+        if V8_UNLIKELY(!js::maybe<decltype(__js_expression_return_maybe__)>::is_valid(__js_expression_return_maybe__)) {\
             return __function_return_type__();\
         }\
         variable = js::maybe<decltype(__js_expression_return_maybe__)>::value(__js_expression_return_maybe__);\
@@ -79,7 +79,7 @@
 #define JS_EXPRESSION_IGNORE(code)\
     {\
         auto __js_expression_ignore_maybe__ = code;\
-        if (!js::maybe<decltype(__js_expression_ignore_maybe__)>::is_valid(__js_expression_ignore_maybe__)) {\
+        if V8_UNLIKELY(!js::maybe<decltype(__js_expression_ignore_maybe__)>::is_valid(__js_expression_ignore_maybe__)) {\
             return __function_return_type__();\
         }\
     }
@@ -721,6 +721,7 @@ namespace js {
 #define JS_PROPERTY_ATTRIBUTE_VOLATIE (static_cast<v8::PropertyAttribute>(v8::PropertyAttribute::DontEnum | v8::PropertyAttribute::ReadOnly))
 #define JS_PROPERTY_ATTRIBUTE_DYNAMIC (static_cast<v8::PropertyAttribute>(v8::PropertyAttribute::DontEnum))
 #define JS_PROPERTY_ATTRIBUTE_DEFAULT (static_cast<v8::PropertyAttribute>(v8::PropertyAttribute::None))
+#define JS_PROPERTY_ATTRIBUTE_ALL (JS_PROPERTY_ATTRIBUTE_STATIC)
 
     struct Source : public v8::ScriptCompiler::Source {
         template<typename ... Args>

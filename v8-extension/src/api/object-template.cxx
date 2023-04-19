@@ -18,7 +18,7 @@ namespace dragiyski::node_ext {
         assert(!per_isolate_class_template.contains(isolate));
         assert(!per_isolate_class_symbol.contains(isolate));
 
-        auto class_name = ::js::StringTable::Get<"FunctionTemplate">(isolate);
+        auto class_name = ::js::StringTable::Get(isolate, "FunctionTemplate");
         auto class_cache = v8::Private::New(isolate, class_name);
         auto class_template = v8::FunctionTemplate::NewWithCache(
             isolate,
