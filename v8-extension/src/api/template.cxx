@@ -72,7 +72,7 @@ namespace dragiyski::node_ext {
                 if (value->IsObject()) {
                     {
                         JS_EXPRESSION_RETURN(wrapper, Wrapper::TryUnwrap<FunctionTemplate>(isolate, value.As<v8::Object>(), FunctionTemplate::get_class_template(isolate)));
-                        if V8_UNLIKELY(wrapper != nullptr) {
+                        if V8_LIKELY(wrapper != nullptr) {
                             auto js_value = wrapper->get_value(isolate);
                             if V8_UNLIKELY(js_value.IsEmpty()) {
                                 JS_THROW_ERROR(ReferenceError, isolate, "[object FunctionTemplate] no longer references v8::FunctionTemplate");
@@ -83,7 +83,7 @@ namespace dragiyski::node_ext {
                     }
                     {
                         JS_EXPRESSION_RETURN(wrapper, Wrapper::TryUnwrap<ObjectTemplate>(isolate, value.As<v8::Object>(), ObjectTemplate::get_class_template(isolate)));
-                        if V8_UNLIKELY(wrapper != nullptr) {
+                        if V8_LIKELY(wrapper != nullptr) {
                             auto js_value = wrapper->get_value(isolate);
                             if V8_UNLIKELY(js_value.IsEmpty()) {
                                 JS_THROW_ERROR(ReferenceError, isolate, "[object ObjectTemplate] no longer references v8::FunctionTemplate");
@@ -94,8 +94,23 @@ namespace dragiyski::node_ext {
                     }
                     {
                         JS_EXPRESSION_RETURN(wrapper, Wrapper::TryUnwrap<Template::NativeDataProperty>(isolate, value.As<v8::Object>(), Template::NativeDataProperty::get_class_template(isolate)));
-                        if V8_UNLIKELY(wrapper != nullptr) {
-                            wrapper->setup(isolate, target, name.As<v8::Name>(), value.As<v8::Object>());
+                        if V8_LIKELY(wrapper != nullptr) {
+                            JS_EXPRESSION_IGNORE(wrapper->setup(isolate, target, name.As<v8::Name>(), value.As<v8::Object>()));
+                            return v8::JustVoid();
+                        }
+                    }
+                    {
+                        JS_EXPRESSION_RETURN(wrapper, Wrapper::TryUnwrap<Template::LazyDataProperty>(isolate, value.As<v8::Object>(), Template::LazyDataProperty::get_class_template(isolate)));
+                        if V8_LIKELY(wrapper != nullptr) {
+                            JS_EXPRESSION_IGNORE(wrapper->setup(isolate, target, name.As<v8::Name>(), value.As<v8::Object>()));
+                            return v8::JustVoid();
+                        }
+                    }
+                    {
+                        JS_EXPRESSION_RETURN(wrapper, Wrapper::TryUnwrap<Template::AccessorProperty>(isolate, value.As<v8::Object>(), Template::AccessorProperty::get_class_template(isolate)));
+                        if V8_LIKELY(wrapper != nullptr) {
+                            JS_EXPRESSION_IGNORE(wrapper->setup(isolate, target, name.As<v8::Name>(), value.As<v8::Object>()));
+                            return v8::JustVoid();
                         }
                     }
                 }
@@ -103,7 +118,6 @@ namespace dragiyski::node_ext {
         }
         v8::Maybe<void> ConfigureFromMap(v8::Local<v8::Context> context, v8::Local<v8::Template> target, v8::Local<v8::Map> properties) {
             static const constexpr auto __function_return_type__ = v8::Nothing<void>;
-            auto isolate = context->GetIsolate();
 
             auto entries = properties->AsArray();
             for (decltype(entries->Length()) i = 0; i < entries->Length(); i += 2) {
@@ -115,7 +129,6 @@ namespace dragiyski::node_ext {
         }
         v8::Maybe<void> ConfigureFromObject(v8::Local<v8::Context> context, v8::Local<v8::Template> target, v8::Local<v8::Object> properties) {
             static const constexpr auto __function_return_type__ = v8::Nothing<void>;
-            auto isolate = context->GetIsolate();
 
             JS_EXPRESSION_RETURN(names, properties->GetPropertyNames(context));
             for (decltype(names->Length()) i = 0; i < names->Length(); ++i) {
@@ -140,6 +153,6 @@ namespace dragiyski::node_ext {
             JS_EXPRESSION_IGNORE(ConfigureFromObject(context, target, properties.As<v8::Object>()));
             return v8::JustVoid();
         }
-        JS_THROW_ERROR(TypeError, isolate, 'Cannot convert value to [object Map] or [object Object].');
+        JS_THROW_ERROR(TypeError, isolate, "Cannot convert value to [object Map] or [object Object].");
     }
 }

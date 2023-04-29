@@ -21,6 +21,8 @@
                 "src/api/function-template.cxx",
                 "src/api/template.cxx",
                 "src/api/template/native-data-property.cxx",
+                "src/api/template/lazy-data-property.cxx",
+                "src/api/template/accessor-property.cxx",
             ]
         }
     ],

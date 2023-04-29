@@ -10,6 +10,9 @@ namespace dragiyski::node_ext {
     using namespace js;
     class Template::AccessorProperty : public Wrapper {
     public:
+        static void initialize(v8::Isolate* isolate);
+        static void uninitialize(v8::Isolate* isolate);
+    public:
         static v8::Local<v8::FunctionTemplate> get_class_template(v8::Isolate* isolate);
         static v8::Local<v8::Private> get_class_symbol(v8::Isolate* isolate);
     protected:
@@ -23,14 +26,16 @@ namespace dragiyski::node_ext {
         Shared<v8::Object> _setter_object;
         Shared<v8::FunctionTemplate> _setter;
         v8::PropertyAttribute _attributes;
+        v8::AccessControl _access_control;
     public:
         v8::Local<v8::Object> get_getter_object(v8::Isolate* isolate) const;
+        v8::Local<v8::FunctionTemplate> get_getter(v8::Isolate* isolate) const;
         v8::Local<v8::Object> get_setter_object(v8::Isolate* isolate) const;
+        v8::Local<v8::FunctionTemplate> get_setter(v8::Isolate* isolate) const;
         v8::PropertyAttribute get_attributes() const;
-        // TODO: We might want the class itself to initialize a template.
-        // For this, given context/isolate and a v8::Template, a property would be set.
+        v8::AccessControl get_access_control() const;
     public:
-        void apply(v8::Isolate *isolate, v8::Local<v8::Template> receiver);
+        v8::Maybe<void> setup(v8::Isolate *isolate, v8::Local<v8::Template> target, v8::Local<v8::Name> name, v8::Local<v8::Object> js_template_wrapper) const;
     protected:
         AccessorProperty(
             v8::Isolate* isolate,
@@ -38,7 +43,8 @@ namespace dragiyski::node_ext {
             v8::Local<v8::FunctionTemplate> getter,
             v8::Local<v8::Object> setter_object,
             v8::Local<v8::FunctionTemplate> setter,
-            v8::PropertyAttribute attributes
+            v8::PropertyAttribute attributes,
+            v8::AccessControl access_control
         );
         AccessorProperty(const AccessorProperty&) = delete;
         AccessorProperty(AccessorProperty&&) = delete;
