@@ -334,6 +334,32 @@ namespace dragiyski::node_ext {
                 "Option \"properties\""
             );
         }
+        // TODO: Rather than using "prototype" and "instance" objects as properties for the template, use them as settings:
+        // Example:
+        /*
+            instance: {
+                codeLike: true,
+                markAsUndetectable: true,
+                properties: {
+                    <name>: <value>
+                }
+                // or
+                properties: new Map([[<name>, <value>]])
+            }
+        */
+        // This should be processed by ObjectTemplate::ConfigureTemplate() which will internally may call Template::ConfigureTemplate
+        // ObjectTemplate::ConfigureTemplate is NOT inherit method of Template::ConfigureTemplate, they are independent.
+        // FunctionTemplate configure a function, its may include properties of Template, but its properties can only be defined statically.
+        // ObjectTemplate has call as function handler and named/indexed property handlers, but it does not have inheritance model.
+        // FunctionTemplate has inheritance model and its instance template and prototype template can modify objects whose constructor is that function,
+        // but unliky Function -> Object -> Value inheritance, FunctionTemplate is not inherited itself by ObjectTemplate.-
+        if (!instance.IsEmpty()) {
+            JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(
+                Template::ConfigureTemplate(context, template_value->InstanceTemplate(), properties),
+                context,
+                "Option \"properties\""
+            );
+        }
 
         auto wrapper = new FunctionTemplate(isolate, template_value, function);
         wrapper->Wrap(isolate, holder);

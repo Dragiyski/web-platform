@@ -206,40 +206,6 @@ namespace dragiyski::node_ext {
         auto this_holder = get_holder(isolate);
         JS_EXPRESSION_RETURN(this_self, this_holder->GetPrivate(context, this_symbol));
 
-        v8::Local<v8::Object> callback_data;
-        {
-            v8::Local<v8::Value> this_getter, this_setter;
-            auto maybe_getter = get_getter_object(isolate);
-            auto maybe_setter = get_setter_object(isolate);
-            if V8_UNLIKELY (maybe_getter.IsEmpty()) {
-                this_getter = v8::Null(isolate);
-            } else {
-                this_getter = maybe_getter;
-            }
-            if (maybe_setter.IsEmpty()) {
-                this_setter = v8::Null(isolate);
-            } else {
-                this_setter = maybe_setter;
-            }
-            v8::Local<v8::Name> names[] = {
-                StringTable::Get(isolate, "context"),
-                StringTable::Get(isolate, "template"),
-                StringTable::Get(isolate, "name"),
-                StringTable::Get(isolate, "getter"),
-                StringTable::Get(isolate, "setter"),
-                StringTable::Get(isolate, "descriptor"),
-            };
-            v8::Local<v8::Value> values[] = {
-                js_context_wrapper,
-                js_template_wrapper,
-                name,
-                this_getter,
-                this_setter,
-                this_self,
-            };
-            callback_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
-            JS_EXPRESSION_IGNORE(callback_data->SetIntegrityLevel(context, v8::IntegrityLevel::kFrozen));
-        }
         target->SetAccessorProperty(
             name,
             get_getter(isolate),
