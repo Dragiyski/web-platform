@@ -1,7 +1,7 @@
 #include "function-template.hxx"
 
-#include "context.hxx"
 #include "template.hxx"
+#include "frozen-map.hxx"
 
 #include "../js-string-table.hxx"
 #include "../error-message.hxx"
@@ -11,21 +11,16 @@
 namespace dragiyski::node_ext {
     using namespace js;
     namespace {
-        std::map<v8::Isolate*, Shared<v8::FunctionTemplate>> per_isolate_class_template;
-        std::map<v8::Isolate*, Shared<v8::Private>> per_isolate_class_symbol;
+        std::map<v8::Isolate*, Shared<v8::FunctionTemplate>> per_isolate_template;
+        std::map<v8::Isolate*, Shared<v8::Private>> per_isolate_template_symbol;
     }
 
     void FunctionTemplate::initialize(v8::Isolate* isolate) {
-        assert(!per_isolate_class_template.contains(isolate));
-        assert(!per_isolate_class_symbol.contains(isolate));
+        assert(!per_isolate_template.contains(isolate));
+        assert(!per_isolate_template_symbol.contains(isolate));
 
         auto class_name = ::js::StringTable::Get(isolate, "FunctionTemplate");
-        auto class_cache = v8::Private::New(isolate, class_name);
-        auto class_template = v8::FunctionTemplate::NewWithCache(
-            isolate,
-            constructor,
-            class_cache
-        );
+        auto class_template = v8::FunctionTemplate::New(isolate, constructor, {}, {}, 1);
         class_template->SetClassName(class_name);
 
         auto signature = v8::Signature::New(isolate, class_template);
@@ -46,13 +41,14 @@ namespace dragiyski::node_ext {
         class_template->ReadOnlyPrototype();
         class_template->InstanceTemplate()->SetInternalFieldCount(1);
 
-        per_isolate_class_symbol.emplace(
+        auto template_symbol = v8::Private::New(isolate, class_name);
+        per_isolate_template_symbol.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(isolate),
-            std::forward_as_tuple(isolate, class_cache)
+            std::forward_as_tuple(isolate, template_symbol)
         );
 
-        per_isolate_class_template.emplace(
+        per_isolate_template.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(isolate),
             std::forward_as_tuple(isolate, class_template)
@@ -60,18 +56,18 @@ namespace dragiyski::node_ext {
     }
 
     void FunctionTemplate::uninitialize(v8::Isolate* isolate) {
-        per_isolate_class_template.erase(isolate);
-        per_isolate_class_symbol.erase(isolate);
+        per_isolate_template.erase(isolate);
+        per_isolate_template_symbol.erase(isolate);
     }
 
-    v8::Local<v8::FunctionTemplate> FunctionTemplate::get_class_template(v8::Isolate* isolate) {
-        assert(per_isolate_class_template.contains(isolate));
-        return per_isolate_class_template[isolate].Get(isolate);
+    v8::Local<v8::FunctionTemplate> FunctionTemplate::get_template(v8::Isolate* isolate) {
+        assert(per_isolate_template.contains(isolate));
+        return per_isolate_template[isolate].Get(isolate);
     }
 
-    v8::Local<v8::Private> FunctionTemplate::get_class_symbol(v8::Isolate* isolate) {
-        assert(per_isolate_class_symbol.contains(isolate));
-        return per_isolate_class_symbol[isolate].Get(isolate);
+    v8::Local<v8::Private> FunctionTemplate::get_template_symbol(v8::Isolate* isolate) {
+        assert(per_isolate_template_symbol.contains(isolate));
+        return per_isolate_template_symbol[isolate].Get(isolate);
     }
 
     void FunctionTemplate::constructor(const v8::FunctionCallbackInfo<v8::Value>& info) {
@@ -81,18 +77,9 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         if (!info.IsConstructCall()) {
-            auto message = StringTable::Get(isolate, "Illegal constructor");
-            JS_THROW_ERROR(TypeError, isolate, message);
+            JS_THROW_ERROR(TypeError, isolate, "Class constructor ", "FunctionTemplate", " cannot be invoked without 'new'");
         }
         info.GetReturnValue().Set(info.This());
-
-        auto function_template_template = FunctionTemplate::get_class_template(isolate);
-
-        auto holder = info.This()->FindInstanceInPrototypeChain(function_template_template);
-        if (holder.IsEmpty() || !holder->IsObject() || holder->InternalFieldCount() < 1) {
-            auto message = StringTable::Get(isolate, "Illegal constructor");
-            JS_THROW_ERROR(TypeError, isolate, message);
-        }
 
         if (info.Length() < 1) {
             JS_THROW_ERROR(TypeError, isolate, "1 argument required, but only ", info.Length(), " present.");
@@ -102,176 +89,10 @@ namespace dragiyski::node_ext {
         }
         auto options = info[0].As<v8::Object>();
 
-        // This value goes into the "data" argument of v8::FunctionTemplate::New()
-        // The FunctionCallback is a C++ function that calls its info.Data()
-        v8::Local<v8::Function> function;
-        {
-            auto name = StringTable::Get(isolate, "function");
-            JS_EXPRESSION_RETURN(value, options->Get(context, name));
-            if (!value->IsFunction()) {
-                JS_THROW_ERROR(TypeError, isolate, "Required option \"function\": not a function.");
-            }
-            function = value.As<v8::Function>();
-        }
-        v8::Local<v8::Signature> signature;
-        {
-            auto name = StringTable::Get(isolate, "receiver");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                if (!js_value->IsObject()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"receiver\": not an object.");
-                }
-                JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(
-                    wrapper,
-                    Wrapper::Unwrap<FunctionTemplate>(
-                        isolate,
-                        js_value.As<v8::Object>(),
-                        function_template_template,
-                        "FunctionTemplate"
-                        ),
-                    context,
-                    "Option \"receiver\""
-                );
-                auto value = wrapper->get_value(isolate);
-                if (value.IsEmpty()) {
-                    JS_THROW_ERROR(ReferenceError, isolate, "Option \"receiver\": ", "[object FunctionTemplate] no longer references v8::FunctionTemplate");
-                }
-                signature = v8::Signature::New(isolate, value);
-            }
-        }
-
-        int length = 0;
-        {
-            auto name = StringTable::Get(isolate, "length");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "In option \"length\"");
-                length = value;
-            }
-        }
-
-        bool is_constructor = true;
-        {
-            auto name = StringTable::Get(isolate, "constructor");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                is_constructor = js_value->BooleanValue(isolate);
-            }
-        }
-        auto constructor_behavior = is_constructor ? v8::ConstructorBehavior::kAllow : v8::ConstructorBehavior::kThrow;
-
-        auto side_effect_type = v8::SideEffectType::kHasSideEffect;
-        {
-            auto name = StringTable::Get(isolate, "sideEffect");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "Option \"sideEffectType\"");
-                if (
-                    value == static_cast<int32_t>(v8::SideEffectType::kHasNoSideEffect) ||
-                    value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffect) ||
-                    value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffectToReceiver)
-                    ) {
-                    side_effect_type = static_cast<v8::SideEffectType>(value);
-                } else {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"sideEffectType\": Invalid side effect type.");
-                }
-            }
-        }
-
-        v8::Local<v8::FunctionTemplate> inherit;
-        {
-            auto name = StringTable::Get(isolate, "inherit");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                if (!js_value->IsObject()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"inherit\": not an object.");
-                }
-                JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(
-                    wrapper,
-                    Wrapper::Unwrap<FunctionTemplate>(
-                        isolate,
-                        js_value.As<v8::Object>(),
-                        function_template_template,
-                        "FunctionTemplate"
-                        ),
-                    context,
-                    "Option \"inherit\""
-                );
-                auto value = wrapper->get_value(isolate);
-                if (value.IsEmpty()) {
-                    JS_THROW_ERROR(ReferenceError, isolate, "Option \"receiver\": ", "[object FunctionTemplate] no longer references v8::FunctionTemplate");
-                }
-                inherit = value;
-            }
-        }
-
-        v8::Local<v8::FunctionTemplate> prototype_provider;
-        {
-            auto name = StringTable::Get(isolate, "prototypeTemplate");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                if (!js_value->IsObject()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"prototypeTemplate\": not an object.");
-                }
-                if (!is_constructor) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"prototypeTemplate\": cannot be used when option \"constructor\" is false.");
-                }
-                if (!inherit.IsEmpty()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"prototypeTemplate\": cannot be object (wrapping FunctionTemplate) when inherit option is also specified");
-                }
-                JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(
-                    wrapper,
-                    Wrapper::Unwrap<FunctionTemplate>(
-                        isolate,
-                        js_value.As<v8::Object>(),
-                        function_template_template,
-                        "FunctionTemplate"
-                        ),
-                    context,
-                    "Option \"prototypeTemplate\""
-                );
-                auto value = wrapper->get_value(isolate);
-                if (value.IsEmpty()) {
-                    JS_THROW_ERROR(ReferenceError, isolate, "Option \"prototype\": ", "[object FunctionTemplate] no longer references v8::FunctionTemplate");
-                }
-                prototype_provider = value;
-            }
-        }
-
-        v8::Local<v8::String> name;
-        {
-            auto property_name = StringTable::Get(isolate, "name");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, property_name));
-            if (!js_value->IsNullOrUndefined()) {
-                JS_EXPRESSION_RETURN(value, js_value->ToString(context));
-                name = value;
-            }
-        }
-
-        bool readonly_prototype = false;
-        {
-            auto name = StringTable::Get(isolate, "readonlyPrototype");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                auto value = js_value->BooleanValue(isolate);
-                if (value) {
-                    if (!is_constructor || !prototype_provider.IsEmpty()) {
-                        JS_THROW_ERROR(TypeError, isolate, "Option \"readonlyPrototype\" cannot be set ( = true) when there is no own prototype (constructor == false OR prototypeTemplate is provided).");
-                    }
-                    readonly_prototype = true;
-                }
-            }
-        }
-
-        bool accept_any_receiver = true;
-        {
-            auto name = StringTable::Get(isolate, "acceptAnyReceiver");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                accept_any_receiver = js_value->BooleanValue(isolate);
-            }
-        }
-
+        auto target = std::make_unique<FunctionTemplate>();
+        target->set_interface(isolate, info.This());
+        JS_EXPRESSION_IGNORE(Setup(context, target.get(), options));
+        
         v8::Local<v8::Object> properties, instance, prototype;
         {
             auto name = StringTable::Get(isolate, "properties");
@@ -300,16 +121,12 @@ namespace dragiyski::node_ext {
                 if (!js_value->IsObject()) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"prototype\": not an object.");
                 }
-                if (!prototype_provider.IsEmpty()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"prototype\" cannot be used when option \"prototypeProvider\" is specified.");
+                if (remove_prototype || !prototype_provider.IsEmpty()) {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"prototype\" cannot be used when option \"prototypeProvider\" or \"removePrototype\" = true is specified.");
                 }
                 prototype = js_value.As<v8::Object>();
             }
         }
-
-        // TODO: For properties "instance" and "prototype" that accept the same options format as the ObjectTemplate;
-        // "prototype" is only allowed when constructor == true and prototype_provider.IsEmpty()
-        // "instance" is always allowed.
 
         JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_this_symbol(isolate), info.This()));
 
@@ -327,9 +144,12 @@ namespace dragiyski::node_ext {
         if (readonly_prototype) {
             template_value->ReadOnlyPrototype();
         }
+        if (remove_prototype) {
+            template_value->RemovePrototype();
+        }
         if (!properties.IsEmpty()) {
             JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(
-                Template::ConfigureTemplate(context, template_value, properties),
+                Template::Setup(context, template_value, properties),
                 context,
                 "Option \"properties\""
             );
@@ -450,14 +270,184 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().Set(callee);
     }
 
+    v8::Maybe<void> FunctionTemplate::Setup(v8::Local<v8::Context> context, FunctionTemplate* target, v8::Local<v8::Object> options) {
+        static const constexpr auto __function_return_type__ = v8::Nothing<void>;
+        auto isolate = context->GetIsolate();
+        v8::HandleScope scope(isolate);
+        {
+            v8::Local<v8::Value> callee;
+            auto name = StringTable::Get(isolate, "function");
+            JS_EXPRESSION_RETURN(value, options->Get(context, name));
+            if (value->IsFunction()) {
+                callee = value;
+            } else if (value->IsObject() && value.As<v8::Object>()->IsCallable()) {
+                callee = value;
+            } else {
+                JS_THROW_ERROR(TypeError, isolate, "Required option \"function\": not a function.");
+            }
+            target->_callee.Reset(isolate, callee);
+        }
+        {
+            auto name = StringTable::Get(isolate, "receiver");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                if (!js_value->IsObject()) {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"receiver\": not an object.");
+                }
+                if (Object<FunctionTemplate>::get_implementation(isolate, js_value) == nullptr) {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"receiver\": object does not wrap v8::FunctionTemplate.");
+                }
+                target->_receiver.Reset(isolate, js_value.As<v8::Object>());
+            }
+        }
+        target->_length = 0;
+        {
+            auto name = StringTable::Get(isolate, "length");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "In option \"length\"");
+                target->_length = value;
+            }
+        }
+        target->_allow_construct = true;
+        {
+            auto name = StringTable::Get(isolate, "constructor");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                target->_allow_construct = js_value->BooleanValue(isolate);
+                if (!target->_allow_construct) {
+                    // This change only the "default" value, option "removePrototype" can still be set to false
+                    target->_remove_prototype = true;
+                }
+            }
+        }
+        target->_side_effect_type = v8::SideEffectType::kHasSideEffect;
+        {
+            auto name = StringTable::Get(isolate, "sideEffect");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "Option \"sideEffectType\"");
+                if (
+                    value == static_cast<int32_t>(v8::SideEffectType::kHasNoSideEffect) ||
+                    value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffect) ||
+                    value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffectToReceiver)
+                ) {
+                    target->_side_effect_type = static_cast<v8::SideEffectType>(value);
+                } else {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"sideEffectType\": Invalid side effect type.");
+                }
+            }
+        }
+        {
+            auto name = StringTable::Get(isolate, "extends");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                if (!js_value->IsObject()) {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"extends\": not an object.");
+                }
+                if (Object<FunctionTemplate>::get_implementation(isolate, js_value) == nullptr) {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"extends\": object does not wrap v8::FunctionTemplate.");
+                }
+                if (!target->_allow_construct) {
+                    JS_THROW_ERROR(TypeError, isolate, "Invalid options: \"extends\" cannot be used when \"constructor\" is false");
+                }
+                target->_inherit.Reset(isolate, js_value.As<v8::Object>());
+            }
+        }
+        {
+            auto name = StringTable::Get(isolate, "prototypeProvider");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                if (!js_value->IsObject()) {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"prototypeProvider\": not an object.");
+                }
+                if (Object<FunctionTemplate>::get_implementation(isolate, js_value) == nullptr) {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"prototypeProvider\": object does not wrap v8::FunctionTemplate.");
+                }
+                if (!target->_inherit.IsEmpty()) {
+                    JS_THROW_ERROR(TypeError, isolate, "Invalid options: \"prototypeProvider\" and \"extends\" options cannot be used together");
+                }
+                if (!target->_allow_construct) {
+                    JS_THROW_ERROR(TypeError, isolate, "Invalid options: \"prototypeProvider\" cannot be used when \"constructor\" is false");
+                }
+                target->_inherit.Reset(isolate, js_value.As<v8::Object>());
+            }
+        }
+        {
+            auto name = StringTable::Get(isolate, "name");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                JS_EXPRESSION_RETURN(value, js_value->ToString(context));
+                target->_class_name.Reset(isolate, value);
+            }
+        }
+        {
+            auto name = StringTable::Get(isolate, "readonlyPrototype");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                if (!target->_allow_construct) {
+                    JS_THROW_ERROR(TypeError, isolate, "Invalid options: \"readonlyPrototype\" cannot be used when \"constructor\" is false");
+                }
+                target->_readonly_prototype = js_value->BooleanValue(isolate);
+            }
+        }
+        {
+            auto name = StringTable::Get(isolate, "removePrototype");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                if (!target->_inherit.IsEmpty()) {
+                    JS_THROW_ERROR(TypeError, isolate, "Invalid options: \"extends\" and \"removePrototype\" options cannot be used together");
+                }
+                if (!target->_prototype_provider.IsEmpty()) {
+                    JS_THROW_ERROR(TypeError, isolate, "Invalid options: \"prototypeProvider\" and \"removePrototype\" options cannot be used together");
+                }
+                target->_remove_prototype = js_value->BooleanValue(isolate);
+            }
+        }
+        {
+            auto name = StringTable::Get(isolate, "acceptAnyReceiver");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                target->_accept_any_receiver = js_value->BooleanValue(isolate);
+            }
+        }
+        v8::Local<v8::Signature> signature;
+        if (!target->_receiver.IsEmpty()) {
+            signature = v8::Signature::New(isolate, target->_receiver.Get(isolate));
+        }
+        auto function_template = v8::FunctionTemplate::New(isolate, callback, target->get_interface(isolate), signature, target->_length, target->_allow_construct ? v8::ConstructorBehavior::kAllow : v8::ConstructorBehavior::kThrow, target->_side_effect_type);
+        {
+            auto name = StringTable::Get(isolate, "properties");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                if (!js_value->IsObject()) {
+                    JS_THROW_ERROR(TypeError, context, "Option \"properties\": Expected an [object], got ", type_of(context, js_value));
+                }
+                auto target_map = v8::Map::New(isolate);
+                JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(Template::Setup<FunctionTemplate>(context, function_template, target_map, js_value), context, "Option \"properties\"");
+                JS_EXPRESSION_RETURN(frozen_map, FrozenMap::Create(context, target_map));
+                target->_properties.Reset(isolate, frozen_map);
+            }
+        }
+        {
+            auto name = StringTable::Get(isolate, "instance");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                if (!target->_allow_construct) {
+                    JS_THROW_ERROR(TypeError, context "Invalid options: Option \"instance\" cannot be used when \"constructor\" is false");
+                }
+            }
+        }
+    }
+
+    v8::Maybe<void> FunctionTemplate::SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::FunctionTemplate> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value) {
+        return Template::SetupProperty(context, target, map, key, value);
+    }
+
     v8::Local<v8::FunctionTemplate> FunctionTemplate::get_value(v8::Isolate* isolate) const {
         return _value.Get(isolate);
     }
     v8::Local<v8::Function> FunctionTemplate::get_callee(v8::Isolate* isolate) const {
         return _callee.Get(isolate);
     }
-
-    FunctionTemplate::FunctionTemplate(v8::Isolate* isolate, v8::Local<v8::FunctionTemplate> value, v8::Local<v8::Function> callee) :
-        _value(isolate, value),
-        _callee(isolate, callee) {}
 }

@@ -7,12 +7,12 @@ namespace dragiyski::node_ext {
     using namespace js;
 
     namespace {
-        std::map<v8::Isolate*, Shared<v8::FunctionTemplate>> per_isolate_class_template;
+        std::map<v8::Isolate*, Shared<v8::FunctionTemplate>> per_isolate_template;
         std::map<v8::Isolate*, Shared<v8::Private>> per_isolate_class_symbol;
     }
 
     void UserContext::initialize(v8::Isolate* isolate) {
-        assert(!per_isolate_class_template.contains(isolate));
+        assert(!per_isolate_template.contains(isolate));
         assert(!per_isolate_class_symbol.contains(isolate));
 
         auto class_name = ::js::StringTable::Get(isolate, "UserContext");

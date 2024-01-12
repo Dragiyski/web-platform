@@ -5,25 +5,17 @@
 
 #include "../../error-message.hxx"
 #include "../../js-string-table.hxx"
-#include "../context.hxx"
 
 namespace dragiyski::node_ext {
     namespace {
-        std::map<v8::Isolate *, Shared<v8::FunctionTemplate>> per_isolate_class_template;
-        std::map<v8::Isolate *, Shared<v8::Private>> per_isolate_class_symbol;
+        std::map<v8::Isolate *, Shared<v8::FunctionTemplate>> per_isolate_template;
     }
 
     void Template::LazyDataProperty::initialize(v8::Isolate *isolate) {
-        assert(!per_isolate_class_template.contains(isolate));
-        assert(!per_isolate_class_symbol.contains(isolate));
+        assert(!per_isolate_template.contains(isolate));
 
         auto class_name = StringTable::Get(isolate, "LazyDataProperty");
-        auto class_cache = v8::Private::New(isolate, class_name);
-        auto class_template = v8::FunctionTemplate::NewWithCache(
-            isolate,
-            constructor,
-            class_cache
-        );
+        auto class_template = v8::FunctionTemplate::New(isolate, constructor);
         class_template->SetClassName(class_name);
         auto prototype_template = class_template->PrototypeTemplate();
         auto signature = v8::Signature::New(isolate, class_template);
@@ -33,13 +25,7 @@ namespace dragiyski::node_ext {
 
         class_template->InstanceTemplate()->SetInternalFieldCount(1);
 
-        per_isolate_class_symbol.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(isolate),
-            std::forward_as_tuple(isolate, class_cache)
-        );
-
-        per_isolate_class_template.emplace(
+        per_isolate_template.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(isolate),
             std::forward_as_tuple(isolate, class_template)
@@ -47,8 +33,7 @@ namespace dragiyski::node_ext {
     }
 
     void Template::LazyDataProperty::uninitialize(v8::Isolate* isolate) {
-        per_isolate_class_template.erase(isolate);
-        per_isolate_class_symbol.erase(isolate);
+        per_isolate_template.erase(isolate);
     }
 
     void Template::LazyDataProperty::constructor(const v8::FunctionCallbackInfo<v8::Value> &info) {
@@ -58,15 +43,6 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         if (!info.IsConstructCall()) {
-            auto message = StringTable::Get(isolate, "Illegal constructor");
-            JS_THROW_ERROR(TypeError, isolate, message);
-        }
-        info.GetReturnValue().Set(info.This());
-
-        auto class_template = LazyDataProperty::get_class_template(isolate);
-
-        auto holder = info.This()->FindInstanceInPrototypeChain(class_template);
-        if (holder.IsEmpty() || !holder->IsObject() || holder->InternalFieldCount() < 1) {
             auto message = StringTable::Get(isolate, "Illegal constructor");
             JS_THROW_ERROR(TypeError, isolate, message);
         }
@@ -136,10 +112,9 @@ namespace dragiyski::node_ext {
             }
         }
 
-        JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_this_symbol(isolate), info.This()));
-
-        auto wrapper = new LazyDataProperty(isolate, getter, attributes, getter_side_effect, setter_side_effect);
-        wrapper->Wrap(isolate, holder);
+        auto implementation = new LazyDataProperty(isolate, getter, attributes, getter_side_effect, setter_side_effect);
+        implementation->set_interface(isolate, info.This());
+        info.GetReturnValue().Set(info.This());
     }
 
     v8::Local<v8::Function> Template::LazyDataProperty::get_getter(v8::Isolate *isolate) const {
@@ -156,61 +131,6 @@ namespace dragiyski::node_ext {
 
     v8::SideEffectType Template::LazyDataProperty::get_setter_side_effect() const {
         return _setter_side_effect;
-    }
-
-    v8::Maybe<void> Template::LazyDataProperty::setup(v8::Isolate *isolate, v8::Local<v8::Template> target, v8::Local<v8::Name> name, v8::Local<v8::Object> js_template_wrapper) const {
-        static constexpr const auto __function_return_type__ = v8::Nothing<void>;
-        v8::HandleScope scope(isolate);
-        auto context = isolate->GetCurrentContext();
-
-        JS_EXPRESSION_RETURN(control_context, js_template_wrapper->GetCreationContext());
-        if V8_UNLIKELY (control_context.IsEmpty()) {
-            control_context = context;
-        }
-
-        auto this_symbol = Wrapper::get_this_symbol(isolate);
-
-        JS_EXPRESSION_RETURN(js_context_holder, Context::get_context_holder(control_context, context));
-        JS_EXPRESSION_RETURN(js_context_wrapper, js_context_holder->GetPrivate(control_context, this_symbol));
-
-        auto this_holder = get_holder(isolate);
-        JS_EXPRESSION_RETURN(this_self, this_holder->GetPrivate(context, this_symbol));
-
-        v8::Local<v8::Object> callback_data;
-        {
-            v8::Local<v8::Value> this_getter;
-            auto maybe_getter = get_getter(isolate);
-            if V8_UNLIKELY (maybe_getter.IsEmpty()) {
-                this_getter = v8::Null(isolate);
-            } else {
-                this_getter = maybe_getter;
-            }
-            v8::Local<v8::Name> names[] = {
-                StringTable::Get(isolate, "context"),
-                StringTable::Get(isolate, "template"),
-                StringTable::Get(isolate, "name"),
-                StringTable::Get(isolate, "getter"),
-                StringTable::Get(isolate, "descriptor"),
-            };
-            v8::Local<v8::Value> values[] = {
-                js_context_wrapper,
-                js_template_wrapper,
-                name,
-                this_getter,
-                this_self,
-            };
-            callback_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
-            JS_EXPRESSION_IGNORE(callback_data->SetIntegrityLevel(context, v8::IntegrityLevel::kFrozen));
-        }
-        target->SetLazyDataProperty(
-            name,
-            getter_callback,
-            callback_data,
-            get_attributes(),
-            get_getter_side_effect(),
-            get_setter_side_effect()
-        );
-        return v8::JustVoid();
     }
 
     Template::LazyDataProperty::LazyDataProperty(

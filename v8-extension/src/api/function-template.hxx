@@ -3,10 +3,10 @@
 
 #include <v8.h>
 #include "../js-helper.hxx"
-#include "../wrapper.hxx"
+#include "../object.hxx"
 
-namespace dragiyski::node_ext {
-    using namespace js;
+    namespace dragiyski::node_ext {
+        using namespace js;
 
     /**
      * @brief Provide access to function template API.
@@ -30,25 +30,38 @@ namespace dragiyski::node_ext {
      * instanceof Template
      *
      */
-    class FunctionTemplate : public Wrapper {
+    class FunctionTemplate : public Object<FunctionTemplate> {
+    public:
+        using js_type = v8::FunctionTemplate;
     public:
         static void initialize(v8::Isolate* isolate);
         static void uninitialize(v8::Isolate* isolate);
     public:
-        static v8::Local<v8::FunctionTemplate> get_class_template(v8::Isolate* isolate);
-        static v8::Local<v8::Private> get_class_symbol(v8::Isolate* isolate);
+        static v8::Local<v8::FunctionTemplate> get_template(v8::Isolate* isolate);
+        static v8::Local<v8::Private> get_template_symbol(v8::Isolate* isolate);
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void callback(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void prototype_get(const v8::FunctionCallbackInfo<v8::Value>& info);
+    public:
+        static v8::Maybe<void> Setup(v8::Local<v8::Context> context, FunctionTemplate *target, v8::Local<v8::Object> options);
+        static v8::Maybe<void> SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::FunctionTemplate> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value);
     private:
         Shared<v8::FunctionTemplate> _value;
-        Shared<v8::Function> _callee;
+        Shared<v8::Value> _callee;
+        Shared<v8::Object> _receiver, _prototype_provider, _prototype_template, _instance_template, _inherit, _properties;
+        bool _accept_any_receiver;
+        bool _remove_prototype;
+        bool _readonly_prototype;
+        bool _allow_construct;
+        v8::SideEffectType _side_effect_type;
+        int _length; 
+        Shared<v8::String> _class_name; 
     public:
         v8::Local<v8::FunctionTemplate> get_value(v8::Isolate *isolate) const;
         v8::Local<v8::Function> get_callee(v8::Isolate *isolate) const;
     protected:
-        FunctionTemplate(v8::Isolate* isolate, v8::Local<v8::FunctionTemplate> value, v8::Local<v8::Function> callee);
+        FunctionTemplate() = default;
         FunctionTemplate(const FunctionTemplate&) = delete;
         FunctionTemplate(FunctionTemplate&&) = delete;
     public:

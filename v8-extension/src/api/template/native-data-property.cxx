@@ -9,37 +9,22 @@
 
 namespace dragiyski::node_ext {
     namespace {
-        std::map<v8::Isolate *, Shared<v8::FunctionTemplate>> per_isolate_class_template;
-        std::map<v8::Isolate *, Shared<v8::Private>> per_isolate_class_symbol;
+        std::map<v8::Isolate *, Shared<v8::FunctionTemplate>> per_isolate_template;
     }
 
     void Template::NativeDataProperty::initialize(v8::Isolate *isolate) {
-        assert(!per_isolate_class_template.contains(isolate));
-        assert(!per_isolate_class_symbol.contains(isolate));
+        assert(!per_isolate_template.contains(isolate));
 
         auto class_name = StringTable::Get(isolate, "NativeDataProperty");
-        auto class_cache = v8::Private::New(isolate, class_name);
-        auto class_template = v8::FunctionTemplate::NewWithCache(
-            isolate,
-            constructor,
-            class_cache
-        );
+        auto class_template = v8::FunctionTemplate::New(isolate, constructor);
         class_template->SetClassName(class_name);
-        auto prototype_template = class_template->PrototypeTemplate();
-        auto signature = v8::Signature::New(isolate, class_template);
 
         // Makes prototype *property* (not object) immutable similar to class X {}; syntax;
         class_template->ReadOnlyPrototype();
 
         class_template->InstanceTemplate()->SetInternalFieldCount(1);
 
-        per_isolate_class_symbol.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(isolate),
-            std::forward_as_tuple(isolate, class_cache)
-        );
-
-        per_isolate_class_template.emplace(
+        per_isolate_template.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(isolate),
             std::forward_as_tuple(isolate, class_template)
@@ -47,8 +32,12 @@ namespace dragiyski::node_ext {
     }
 
     void Template::NativeDataProperty::uninitialize(v8::Isolate* isolate) {
-        per_isolate_class_template.erase(isolate);
-        per_isolate_class_symbol.erase(isolate);
+        per_isolate_template.erase(isolate);
+    }
+
+    v8::Local<v8::FunctionTemplate> Template::NativeDataProperty::get_template(v8::Isolate *isolate) {
+        assert(per_isolate_template.contains(isolate));
+        return per_isolate_template[isolate].Get(isolate);
     }
 
     void Template::NativeDataProperty::constructor(const v8::FunctionCallbackInfo<v8::Value> &info) {
@@ -58,15 +47,6 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         if (!info.IsConstructCall()) {
-            auto message = StringTable::Get(isolate, "Illegal constructor");
-            JS_THROW_ERROR(TypeError, isolate, message);
-        }
-        info.GetReturnValue().Set(info.This());
-
-        auto class_template = NativeDataProperty::get_class_template(isolate);
-
-        auto holder = info.This()->FindInstanceInPrototypeChain(class_template);
-        if (holder.IsEmpty() || !holder->IsObject() || holder->InternalFieldCount() < 1) {
             auto message = StringTable::Get(isolate, "Illegal constructor");
             JS_THROW_ERROR(TypeError, isolate, message);
         }
@@ -161,10 +141,9 @@ namespace dragiyski::node_ext {
             }
         }
 
-        JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_this_symbol(isolate), info.This()));
-
-        auto wrapper = new NativeDataProperty(isolate, getter, setter, attributes, access_control, getter_side_effect, setter_side_effect);
-        wrapper->Wrap(isolate, holder);
+        auto implementation = new NativeDataProperty(isolate, getter, setter, attributes, access_control, getter_side_effect, setter_side_effect);
+        implementation->set_interface(isolate, info.This());
+        info.GetReturnValue().Set(info.This());
     }
 
     v8::Local<v8::Function> Template::NativeDataProperty::get_getter(v8::Isolate *isolate) const {
@@ -189,70 +168,6 @@ namespace dragiyski::node_ext {
 
     v8::SideEffectType Template::NativeDataProperty::get_setter_side_effect() const {
         return _setter_side_effect;
-    }
-
-    v8::Maybe<void> Template::NativeDataProperty::setup(v8::Isolate *isolate, v8::Local<v8::Template> target, v8::Local<v8::Name> name, v8::Local<v8::Object> js_template_wrapper) const {
-        static constexpr const auto __function_return_type__ = v8::Nothing<void>;
-        v8::HandleScope scope(isolate);
-        auto context = isolate->GetCurrentContext();
-
-        JS_EXPRESSION_RETURN(control_context, js_template_wrapper->GetCreationContext());
-        if V8_UNLIKELY (control_context.IsEmpty()) {
-            control_context = context;
-        }
-
-        auto this_symbol = Wrapper::get_this_symbol(isolate);
-
-        JS_EXPRESSION_RETURN(js_context_holder, Context::get_context_holder(control_context, context));
-        JS_EXPRESSION_RETURN(js_context_wrapper, js_context_holder->GetPrivate(control_context, this_symbol));
-
-        auto this_holder = get_holder(isolate);
-        JS_EXPRESSION_RETURN(this_self, this_holder->GetPrivate(context, this_symbol));
-
-        v8::Local<v8::Object> callback_data;
-        {
-            v8::Local<v8::Value> this_getter, this_setter;
-            auto maybe_getter = get_getter(isolate);
-            auto maybe_setter = get_setter(isolate);
-            if V8_UNLIKELY (maybe_getter.IsEmpty()) {
-                this_getter = v8::Null(isolate);
-            } else {
-                this_getter = maybe_getter;
-            }
-            if (maybe_setter.IsEmpty()) {
-                this_setter = v8::Null(isolate);
-            } else {
-                this_setter = maybe_setter;
-            }
-            v8::Local<v8::Name> names[] = {
-                StringTable::Get(isolate, "context"),
-                StringTable::Get(isolate, "template"),
-                StringTable::Get(isolate, "name"),
-                StringTable::Get(isolate, "getter"),
-                StringTable::Get(isolate, "setter"),
-                StringTable::Get(isolate, "descriptor"),
-            };
-            v8::Local<v8::Value> values[] = {
-                js_context_wrapper,
-                js_template_wrapper,
-                name,
-                this_getter,
-                this_setter,
-                this_self,
-            };
-            callback_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
-            JS_EXPRESSION_IGNORE(callback_data->SetIntegrityLevel(context, v8::IntegrityLevel::kFrozen));
-        }
-        target->SetNativeDataProperty(
-            name,
-            getter_callback,
-            setter_callback,
-            callback_data,
-            get_attributes(),
-            get_access_control(),
-            get_getter_side_effect(),
-            get_setter_side_effect()
-        );
     }
 
     Template::NativeDataProperty::NativeDataProperty(

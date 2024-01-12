@@ -6,12 +6,12 @@
 
 namespace dragiyski::node_ext {
     namespace {
-        std::map<v8::Isolate*, Shared<v8::FunctionTemplate>> per_isolate_class_template;
+        std::map<v8::Isolate*, Shared<v8::FunctionTemplate>> per_isolate_template;
         std::map<v8::Isolate*, Shared<v8::Private>> per_isolate_class_symbol;
     }
 
     void Context::initialize(v8::Isolate* isolate) {
-        assert(!per_isolate_class_template.contains(isolate));
+        assert(!per_isolate_template.contains(isolate));
         assert(!per_isolate_class_symbol.contains(isolate));
 
         auto class_name = ::js::StringTable::Get(isolate, "Context");
@@ -86,7 +86,7 @@ namespace dragiyski::node_ext {
             std::forward_as_tuple(isolate, class_cache)
         );
 
-        per_isolate_class_template.emplace(
+        per_isolate_template.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(isolate),
             std::forward_as_tuple(isolate, class_template)
@@ -94,13 +94,13 @@ namespace dragiyski::node_ext {
     }
 
     void Context::uninitialize(v8::Isolate* isolate) {
-        per_isolate_class_template.erase(isolate);
+        per_isolate_template.erase(isolate);
         per_isolate_class_symbol.erase(isolate);
     }
 
     v8::Local<v8::FunctionTemplate> Context::get_class_template(v8::Isolate* isolate) {
-        assert(per_isolate_class_template.contains(isolate));
-        return per_isolate_class_template[isolate].Get(isolate);
+        assert(per_isolate_template.contains(isolate));
+        return per_isolate_template[isolate].Get(isolate);
     }
 
     v8::Local<v8::Private> Context::get_class_symbol(v8::Isolate* isolate) {

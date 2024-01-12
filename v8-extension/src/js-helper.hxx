@@ -629,6 +629,19 @@ namespace js {
         }
     };
 
+    template<typename ...T>
+    struct string_impl_context_isolate {
+        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, v8::Isolate* isolate, T... values) {
+            return string_concat_impl<decltype(string_value_impl<T>::Create(context, values))...>::concat(isolate, string_value_impl<T>::Create(context, values)...);
+        };
+        static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, v8::Isolate* isolate, T... values) {
+            return string_concat_impl<decltype(string_value_impl<T>::ToString(context, values))...>::concat(isolate, string_value_impl<T>::ToString(context, values)...);
+        };
+        static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, v8::Isolate* isolate, T... values) {
+            return string_concat_impl<decltype(string_value_impl<T>::ToDetailString(context, values))...>::concat(isolate, string_value_impl<T>::ToDetailString(context, values)...);
+        };
+    };
+
     template<typename ... T>
     struct string_impl {
         static inline v8::Local<v8::String> New(v8::Isolate* isolate, T... values) {
@@ -639,17 +652,17 @@ namespace js {
         };
         static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, T... values) {
             auto isolate = context->GetIsolate();
-            return string_impl<T...>::Create(context, isolate, values...);
+            return string_impl_context_isolate<T...>::Create(context, isolate, values...);
         };
         static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, T... values) {
             auto isolate = context->GetIsolate();
-            return string_impl<T...>::ToString(context, isolate, values...);
+            return string_impl_context_isolate<T...>::ToString(context, isolate, values...);
         };
         static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, T... values) {
             auto isolate = context->GetIsolate();
-            return string_impl<T...>::ToDetailString(context, isolate, values...);
+            return string_impl_context_isolate<T...>::ToDetailString(context, isolate, values...);
         };
-        static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, v8::Isolate* isolate, T... values) {
+        /* static inline v8::MaybeLocal<v8::String> Create(v8::Local<v8::Context> context, v8::Isolate* isolate, T... values) {
             return string_concat_impl<decltype(string_value_impl<T>::Create(context, isolate, values))...>::concat(isolate, string_value_impl<T>::Create(context, isolate, values)...);
         };
         static inline v8::MaybeLocal<v8::String> ToString(v8::Local<v8::Context> context, v8::Isolate* isolate, T... values) {
@@ -657,7 +670,7 @@ namespace js {
         };
         static inline v8::MaybeLocal<v8::String> ToDetailString(v8::Local<v8::Context> context, v8::Isolate* isolate, T... values) {
             return string_concat_impl<decltype(string_value_impl<T>::ToDetailString(context, isolate, values))...>::concat(isolate, string_value_impl<T>::ToDetailString(context, isolate, values)...);
-        };
+        }; */
     };
 
     template<typename ... T>

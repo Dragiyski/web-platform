@@ -11,6 +11,12 @@
 #include "js-string-table.hxx"
 
 namespace js {
+
+    template<class Class>
+    class NativeObject {
+    private:
+        static
+    };
     class Wrapper {
     public:
         static void initialize(v8::Isolate *isolate);
@@ -33,6 +39,8 @@ namespace js {
         static v8::Maybe<T *> Unwrap(v8::Isolate *isolate, v8::Local<v8::Object> self, v8::Local<v8::FunctionTemplate> class_template, const char *type_name = typeid(T).name());
         template<typename T>
         static v8::Maybe<T *> TryUnwrap(v8::Isolate *isolate, v8::Local<v8::Object> self, v8::Local<v8::FunctionTemplate> class_template);
+        template<typename T>
+        static v8::Maybe<bool> IsWrapped(v8::Isolate *isolate, v8::Local<v8::Value> value);
 
     protected:
         void Wrap(v8::Isolate *isolate, v8::Local<v8::Object> holder);
@@ -53,6 +61,27 @@ namespace js {
     };
 
     template<typename T>
+    v8::Maybe<bool> Wrapper::IsWrapped(v8::Isolate *isolate, v8::Local<v8::Value> value) {
+        static constexpr const auto __function_return_type__ = v8::Nothing<bool>;
+        static constexpr bool has_template_getter = requires() {
+            { T::get_class_template(isolate) } -> std::convertible_to<v8::Local<v8::FunctionTemplate>>;
+        };
+        if (!value->IsObject()) {
+            return v8::Just(false);
+        }
+        JS_EXPRESSION_RETURN(resolved, Wrapper::resolve_self<T>(isolate, value.As<v8::Object>()));
+        if (!resolved->IsObject()) {
+            return v8::Just(false);
+        }
+        auto holder = resolved;
+        if constexpr (has_template_getter) {
+            auto template_value = T::get_class_template(isolate);
+            holder = resolved->FindInstanceInPrototypeChain(template_value);
+        }
+        return v8::Just(!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1);
+    }
+
+    template<typename T>
     T *Wrapper::Unwrap(v8::Isolate *isolate, v8::Local<v8::Object> holder) {
         assert(!holder.IsEmpty() && holder->IsObject() && holder->InternalFieldCount() >= 1);
         auto wrapper_ptr = reinterpret_cast<Wrapper *>(holder->GetAlignedPointerFromInternalField(0));
@@ -63,8 +92,8 @@ namespace js {
     v8::MaybeLocal<v8::Object> Wrapper::resolve_self(v8::Isolate *isolate, v8::Local<v8::Object> self) {
         using __function_return_type__ = v8::MaybeLocal<v8::Object>;
         static constexpr bool has_symbol = requires() {
-                                               { T::get_class_symbol() } -> std::convertible_to<v8::Local<v8::Private>>;
-                                           };
+            { T::get_class_symbol() } -> std::convertible_to<v8::Local<v8::Private>>;
+        };
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
         v8::Local<v8::Private> symbol;
@@ -86,7 +115,7 @@ namespace js {
                 JS_EXPRESSION_RETURN(has_extension, object->HasPrivate(context, symbol));
                 if (has_extension) {
                     JS_EXPRESSION_RETURN(extension, object->GetPrivate(context, symbol));
-                    if V8_LIKELY (extension->IsObject()) {
+                    if V8_LIKELY (extension->IsObject() && !extension->SameValue(value)) {
                         self = extension.As<v8::Object>();
                         goto do_until_resolved;
                     }
@@ -104,7 +133,7 @@ namespace js {
         JS_EXPRESSION_RETURN(holder, Wrapper::get_holder(isolate, resolved, class_template, type_name));
         auto ptr = Wrapper::Unwrap<T>(isolate, holder);
         if V8_UNLIKELY(ptr == nullptr) {
-            JS_THROW_ERROR(ReferenceError, isolate, "[object ", type_name, "] no longer wraps a native object");
+            JS_THROW_ERROR(ReferenceError, isolate, "[", "object", " ", type_name, "]", " ", "no longer wraps a native object");
         }
         return v8::Just(ptr);
     };

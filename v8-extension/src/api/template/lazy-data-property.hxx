@@ -4,19 +4,19 @@
 #include <v8.h>
 #include "../template.hxx"
 #include "../../js-helper.hxx"
-#include "../../wrapper.hxx"
+#include "../../object.hxx"
 
 namespace dragiyski::node_ext {
     using namespace js;
-    class Template::LazyDataProperty : public Wrapper {
+    class Template::LazyDataProperty : public Object<Template::LazyDataProperty> {
     public:
         static void initialize(v8::Isolate* isolate);
         static void uninitialize(v8::Isolate* isolate);
     public:
-        static v8::Local<v8::FunctionTemplate> get_class_template(v8::Isolate* isolate);
-        static v8::Local<v8::Private> get_class_symbol(v8::Isolate* isolate);
+        static v8::Local<v8::FunctionTemplate> get_template(v8::Isolate* isolate);
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
+    public:
         static void getter_callback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info);
     private:
         Shared<v8::Function> _getter;
@@ -30,8 +30,6 @@ namespace dragiyski::node_ext {
         v8::PropertyAttribute get_attributes() const;
         v8::SideEffectType get_getter_side_effect() const;
         v8::SideEffectType get_setter_side_effect() const;
-    public:
-        v8::Maybe<void> setup(v8::Isolate *isolate, v8::Local<v8::Template> target, v8::Local<v8::Name> name, v8::Local<v8::Object> js_template_wrapper) const;
     protected:
         LazyDataProperty(
             v8::Isolate *isolate,

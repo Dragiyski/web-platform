@@ -3,7 +3,6 @@
 #include "js-helper.hxx"
 #include "js-string-table.hxx"
 #include "api/private.hxx"
-#include "api/context.hxx"
 #include "api/function-template.hxx"
 
 namespace {
@@ -12,18 +11,12 @@ namespace {
     v8::Maybe<void> initialize(v8::Local<v8::Context> context) {
         auto isolate = context->GetIsolate();
         js::StringTable::initialize(isolate);
-        js::Wrapper::initialize(isolate);
         dragiyski::node_ext::Private::initialize(isolate);
-        dragiyski::node_ext::Context::initialize(isolate);
-        dragiyski::node_ext::FunctionTemplate::initialize(isolate);
         return v8::JustVoid();
     }
 
     void uninitialize(v8::Isolate* isolate) {
-        dragiyski::node_ext::FunctionTemplate::uninitialize(isolate);
-        dragiyski::node_ext::Context::uninitialize(isolate);
         dragiyski::node_ext::Private::uninitialize(isolate);
-        js::Wrapper::uninitialize(isolate);
         js::StringTable::uninitialize(isolate);
     }
 }
@@ -48,19 +41,12 @@ NODE_MODULE_INIT() {
 
     {
         auto name = js::StringTable::Get(isolate, "Private");
-        auto class_template = Private::get_class_template(isolate);
+        auto class_template = Private::get_template(isolate);
         JS_EXPRESSION_RETURN(value, class_template->GetFunction(context));
         JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
-    }
-    {
-        auto name = js::StringTable::Get(isolate, "Context");
-        auto class_template = Context::get_class_template(isolate);
-        JS_EXPRESSION_RETURN(value, class_template->GetFunction(context));
-        JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
-    }
-    {
+    }{
         auto name = js::StringTable::Get(isolate, "FunctionTemplate");
-        auto class_template = FunctionTemplate::get_class_template(isolate);
+        auto class_template = FunctionTemplate::get_template(isolate);
         JS_EXPRESSION_RETURN(value, class_template->GetFunction(context));
         JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
     }

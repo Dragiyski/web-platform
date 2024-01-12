@@ -4,19 +4,19 @@
 #include <v8.h>
 #include "../template.hxx"
 #include "../../js-helper.hxx"
-#include "../../wrapper.hxx"
+#include "../../object.hxx"
 
 namespace dragiyski::node_ext {
     using namespace js;
-    class Template::NativeDataProperty : public Wrapper {
+    class Template::NativeDataProperty : public Object<Template::NativeDataProperty> {
     public:
         static void initialize(v8::Isolate* isolate);
         static void uninitialize(v8::Isolate* isolate);
     public:
-        static v8::Local<v8::FunctionTemplate> get_class_template(v8::Isolate* isolate);
-        static v8::Local<v8::Private> get_class_symbol(v8::Isolate* isolate);
+        static v8::Local<v8::FunctionTemplate> get_template(v8::Isolate* isolate);
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
+    public:
         static void getter_callback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info);
         static void setter_callback(v8::Local<v8::Name> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
     private:
@@ -32,8 +32,6 @@ namespace dragiyski::node_ext {
         v8::AccessControl get_access_control() const;
         v8::SideEffectType get_getter_side_effect() const;
         v8::SideEffectType get_setter_side_effect() const;
-    public:
-        v8::Maybe<void> setup(v8::Isolate *isolate, v8::Local<v8::Template> target, v8::Local<v8::Name> name, v8::Local<v8::Object> js_template_wrapper) const;
     protected:
         NativeDataProperty(
             v8::Isolate *isolate,
