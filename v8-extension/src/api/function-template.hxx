@@ -59,7 +59,7 @@
         Shared<v8::String> _class_name; 
     public:
         v8::Local<v8::FunctionTemplate> get_value(v8::Isolate *isolate) const;
-        v8::Local<v8::Function> get_callee(v8::Isolate *isolate) const;
+        v8::Local<v8::Value> get_callee(v8::Isolate *isolate) const;
     protected:
         FunctionTemplate() = default;
         FunctionTemplate(const FunctionTemplate&) = delete;

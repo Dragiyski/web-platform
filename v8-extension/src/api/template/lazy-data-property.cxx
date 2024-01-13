@@ -43,8 +43,11 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         if (!info.IsConstructCall()) {
-            auto message = StringTable::Get(isolate, "Illegal constructor");
-            JS_THROW_ERROR(TypeError, isolate, message);
+            v8::Local<v8::Value> args[] = { info[0] };
+            JS_EXPRESSION_RETURN(callee, get_template(isolate)->GetFunction(context));
+            JS_EXPRESSION_RETURN(return_value, callee->NewInstance(context, 1, args));
+            info.GetReturnValue().Set(return_value);
+            return;
         }
 
         if (info.Length() < 1) {

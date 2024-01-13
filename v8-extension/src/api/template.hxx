@@ -68,7 +68,7 @@ namespace dragiyski::node_ext {
         if (source->IsMap()) {
             JS_EXPRESSION_IGNORE(SetupFromMap<Type>(context, target, map, source.As<v8::Map>()));
         } else if (source->IsObject()) {
-            auto frozen_map = Object<FrozenMap>::get_implementation(isolate, source);
+            auto frozen_map = Object<FrozenMap>::get_implementation(isolate, source.As<v8::Object>());
             if (frozen_map != nullptr) {
                 auto mutable_map = frozen_map->get_map(isolate);
                 JS_EXPRESSION_IGNORE(SetupFromMap<Type>(context, target, map, mutable_map));
@@ -103,7 +103,7 @@ namespace dragiyski::node_ext {
         auto isolate = context->GetIsolate();
         v8::HandleScope scope(isolate);
 
-        JS_EXPRESSION_RETURN(keys, target->GetOwnPropertyNames(context));
+        JS_EXPRESSION_RETURN(keys, source->GetOwnPropertyNames(context));
         for (decltype(keys->Length()) i = 0; i < keys->Length(); i++) {
             JS_EXPRESSION_RETURN(key, keys->Get(context, i));
             JS_EXPRESSION_RETURN(value, source->Get(context, key));

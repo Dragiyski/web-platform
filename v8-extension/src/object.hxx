@@ -149,6 +149,7 @@ namespace js {
     }
 
     v8::MaybeLocal<v8::String> type_of(v8::Local<v8::Context> context, v8::Local<v8::Value> value);
+    v8::MaybeLocal<v8::Value> object_or_function_call(v8::Local<v8::Context> context, v8::Local<v8::Value> callee, v8::Local<v8::Value> recv, int argc, v8::Local<v8::Value> argv[]);
 }
 
 #endif /* JS_OBJECT_HXX */

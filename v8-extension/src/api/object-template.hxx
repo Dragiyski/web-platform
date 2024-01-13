@@ -6,9 +6,16 @@
 #include "../object.hxx"
 
 namespace dragiyski::node_ext {
+    class FunctionTemplate;
+}
+
+#include "function-template.hxx"
+
+namespace dragiyski::node_ext {
     using namespace js;
 
     class ObjectTemplate : public Object<ObjectTemplate> {
+        friend class FunctionTemplate;
     public:
         using js_type = v8::ObjectTemplate;
     public:
@@ -16,10 +23,9 @@ namespace dragiyski::node_ext {
         static void uninitialize(v8::Isolate* isolate);
         static v8::Maybe<void> ConfigureTemplate(v8::Local<v8::Context> context, v8::Local<v8::ObjectTemplate> value, v8::Local<v8::Object> settings);
     public:
-        static v8::Local<v8::FunctionTemplate> get_class_template(v8::Isolate* isolate);
-        static v8::Local<v8::Private> get_class_symbol(v8::Isolate* isolate);
+        static v8::Local<v8::FunctionTemplate> get_template(v8::Isolate* isolate);
     public:
-        static v8::Maybe<void> Setup(v8::Local<v8::Context> context, v8::Local<v8::ObjectTemplate> value, v8::Local<v8::Object> settings);
+        static v8::Maybe<void> Setup(v8::Local<v8::Context> context, ObjectTemplate* target, v8::Local<v8::Object> options);
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
     public:
@@ -39,14 +45,21 @@ namespace dragiyski::node_ext {
         static void IndexedPropertyDescriptorCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Value> &info);
     private:
         Shared<v8::ObjectTemplate> _value;
+        bool _undetectable;
+        bool _code_like;
+        bool _immutable_prototype;
+        Shared<v8::Object> _name_handler, _index_handler;
     public:
         v8::Local<v8::ObjectTemplate> get_value(v8::Isolate *isolate) const;
     protected:
-        ObjectTemplate(v8::Isolate* isolate, v8::Local<v8::ObjectTemplate> value);
+        ObjectTemplate() = default;
         ObjectTemplate(const ObjectTemplate&) = delete;
         ObjectTemplate(ObjectTemplate&&) = delete;
     public:
         virtual ~ObjectTemplate() override = default;
+    public:
+        class NamedPropertyHandlerConfiguration;
+        class IndexedPropertyHandlerConfiguration;
     };
 }
 

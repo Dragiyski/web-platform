@@ -2,6 +2,7 @@
 
 #include "template.hxx"
 #include "frozen-map.hxx"
+#include "object-template.hxx"
 
 #include "../js-string-table.hxx"
 #include "../error-message.hxx"
@@ -89,100 +90,9 @@ namespace dragiyski::node_ext {
         }
         auto options = info[0].As<v8::Object>();
 
-        auto target = std::make_unique<FunctionTemplate>();
+        auto target = std::unique_ptr<FunctionTemplate>(new FunctionTemplate());
         target->set_interface(isolate, info.This());
         JS_EXPRESSION_IGNORE(Setup(context, target.get(), options));
-        
-        v8::Local<v8::Object> properties, instance, prototype;
-        {
-            auto name = StringTable::Get(isolate, "properties");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                if (!js_value->IsObject()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"properties\": not an object.");
-                }
-                properties = js_value.As<v8::Object>();
-            }
-        }
-        {
-            auto name = StringTable::Get(isolate, "instance");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                if (!js_value->IsObject()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"instance\": not an object.");
-                }
-                instance = js_value.As<v8::Object>();
-            }
-        }
-        {
-            auto name = StringTable::Get(isolate, "prototype");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                if (!js_value->IsObject()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"prototype\": not an object.");
-                }
-                if (remove_prototype || !prototype_provider.IsEmpty()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"prototype\" cannot be used when option \"prototypeProvider\" or \"removePrototype\" = true is specified.");
-                }
-                prototype = js_value.As<v8::Object>();
-            }
-        }
-
-        JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_this_symbol(isolate), info.This()));
-
-        auto template_value = v8::FunctionTemplate::New(isolate, callback, holder, signature, length, constructor_behavior, side_effect_type);
-        if (!name.IsEmpty()) {
-            template_value->SetClassName(name);
-        }
-        if (!inherit.IsEmpty()) {
-            template_value->Inherit(inherit);
-        }
-        if (!prototype_provider.IsEmpty()) {
-            template_value->SetPrototypeProviderTemplate(template_value);
-        }
-        template_value->SetAcceptAnyReceiver(accept_any_receiver);
-        if (readonly_prototype) {
-            template_value->ReadOnlyPrototype();
-        }
-        if (remove_prototype) {
-            template_value->RemovePrototype();
-        }
-        if (!properties.IsEmpty()) {
-            JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(
-                Template::Setup(context, template_value, properties),
-                context,
-                "Option \"properties\""
-            );
-        }
-        // TODO: Rather than using "prototype" and "instance" objects as properties for the template, use them as settings:
-        // Example:
-        /*
-            instance: {
-                codeLike: true,
-                markAsUndetectable: true,
-                properties: {
-                    <name>: <value>
-                }
-                // or
-                properties: new Map([[<name>, <value>]])
-            }
-        */
-        // This should be processed by ObjectTemplate::ConfigureTemplate() which will internally may call Template::ConfigureTemplate
-        // ObjectTemplate::ConfigureTemplate is NOT inherit method of Template::ConfigureTemplate, they are independent.
-        // FunctionTemplate configure a function, its may include properties of Template, but its properties can only be defined statically.
-        // ObjectTemplate has call as function handler and named/indexed property handlers, but it does not have inheritance model.
-        // FunctionTemplate has inheritance model and its instance template and prototype template can modify objects whose constructor is that function,
-        // but unliky Function -> Object -> Value inheritance, FunctionTemplate is not inherited itself by ObjectTemplate.-
-        if (!instance.IsEmpty()) {
-            JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(
-                Template::ConfigureTemplate(context, template_value->InstanceTemplate(), properties),
-                context,
-                "Option \"properties\""
-            );
-        }
-
-        auto wrapper = new FunctionTemplate(isolate, template_value, function);
-        wrapper->Wrap(isolate, holder);
     }
 
     void FunctionTemplate::callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
@@ -191,14 +101,10 @@ namespace dragiyski::node_ext {
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
 
-        auto holder = info.Data().As<v8::Object>();
-        auto wrapper = Wrapper::Unwrap<FunctionTemplate>(isolate, holder);
-        JS_EXPRESSION_RETURN(self, holder->GetPrivate(context, Wrapper::get_this_symbol(isolate)));
-        auto api_callee = wrapper->get_callee(isolate);
-
-        JS_EXPRESSION_RETURN(control_context, holder->GetCreationContext());
-        JS_EXPRESSION_RETURN(context_holder, Context::get_context_holder(control_context, context));
-        JS_EXPRESSION_RETURN(context_self, context_holder->GetPrivate(control_context, Wrapper::get_this_symbol(isolate)));
+        auto implementation = Object<FunctionTemplate>::get_implementation(isolate, info.Data().As<v8::Object>());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
 
         v8::Local<v8::Value> arguments_list[info.Length()];
         for (decltype(info.Length()) i = 0; i < info.Length(); ++i) {
@@ -207,6 +113,11 @@ namespace dragiyski::node_ext {
         auto arguments = v8::Array::New(isolate, arguments_list, info.Length());
 
         v8::Local<v8::Object> call_data;
+        auto api_callee = implementation->get_callee(isolate);
+        // TODO: Add current context here. This can (and most probably will) be different from the current context when we call the api_callee
+        // Why? Because api_callee would have been given by the context that have access to NodeJS module API that imported this module
+        // In contrast, the current context during this invocation would be the context of the function created from the wrapped FunctionTemplate
+        // Since FunctionTemplate is context independent, the actual function will be determined by how the code retrieved it.
         {
             v8::Local<v8::Name> names[] = {
                 StringTable::Get(isolate, "isConstructorCall"),
@@ -215,8 +126,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "arguments"),
                 StringTable::Get(isolate, "newTarget"),
                 StringTable::Get(isolate, "callee"),
-                StringTable::Get(isolate, "template"),
-                StringTable::Get(isolate, "context"),
+                StringTable::Get(isolate, "template")
             };
             v8::Local<v8::Value> values[] = {
                 v8::Boolean::New(isolate, info.IsConstructCall()),
@@ -225,13 +135,12 @@ namespace dragiyski::node_ext {
                 arguments,
                 info.NewTarget(),
                 api_callee,
-                self,
-                context_self
+                implementation->get_interface(isolate)
             };
-            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Value>));
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         v8::Local<v8::Value> call_args[] = { call_data };
-        JS_EXPRESSION_RETURN(return_value, api_callee->Call(context, v8::Undefined(isolate), 1, call_args));
+        JS_EXPRESSION_RETURN(return_value, object_or_function_call(context, api_callee, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
         info.GetReturnValue().Set(return_value);
     }
 
@@ -241,14 +150,11 @@ namespace dragiyski::node_ext {
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
 
-        auto wrapper = Wrapper::Unwrap<FunctionTemplate>(isolate, info.Holder());
-        if (wrapper == nullptr) {
-            JS_THROW_ERROR(ReferenceError, isolate, "[object FunctionTemplate] no longer wraps a native object");
-        }
+        auto implementation = Object<FunctionTemplate>::get_implementation(isolate, info.Holder());
 
         v8::Local<v8::Context> callee_context = context;
 
-        if (!info[0]->IsNullOrUndefined()) {
+        /* if (!info[0]->IsNullOrUndefined()) {
             if (!info[0]->IsObject()) {
                 JS_THROW_ERROR(TypeError, isolate, "Expected arguments[0] to be an object.");
             }
@@ -262,11 +168,10 @@ namespace dragiyski::node_ext {
             if (callee_context.IsEmpty()) {
                 JS_THROW_ERROR(ReferenceError, isolate, "[object Context] no longer references v8::Context");
             }
-        }
+        } */
 
-        auto callee_template = wrapper->get_value(isolate);
+        auto callee_template = implementation->get_value(isolate);
         JS_EXPRESSION_RETURN(callee, callee_template->GetFunction(callee_context));
-        JS_EXPRESSION_IGNORE(callee->SetPrivate(context, Wrapper::get_this_symbol(isolate), info.Holder()));
         info.GetReturnValue().Set(callee);
     }
 
@@ -287,6 +192,7 @@ namespace dragiyski::node_ext {
             }
             target->_callee.Reset(isolate, callee);
         }
+        v8::Local<v8::FunctionTemplate> receiver_template;
         {
             auto name = StringTable::Get(isolate, "receiver");
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
@@ -294,10 +200,13 @@ namespace dragiyski::node_ext {
                 if (!js_value->IsObject()) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"receiver\": not an object.");
                 }
-                if (Object<FunctionTemplate>::get_implementation(isolate, js_value) == nullptr) {
+                auto js_object = js_value.As<v8::Object>();
+                auto receiver_implementation = Object<FunctionTemplate>::get_implementation(isolate, js_object);
+                if (receiver_implementation == nullptr) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"receiver\": object does not wrap v8::FunctionTemplate.");
                 }
-                target->_receiver.Reset(isolate, js_value.As<v8::Object>());
+                target->_receiver.Reset(isolate, js_object);
+                receiver_template = receiver_implementation->get_value(isolate);
             }
         }
         target->_length = 0;
@@ -345,13 +254,14 @@ namespace dragiyski::node_ext {
                 if (!js_value->IsObject()) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"extends\": not an object.");
                 }
-                if (Object<FunctionTemplate>::get_implementation(isolate, js_value) == nullptr) {
+                auto js_object = js_value.As<v8::Object>();
+                if (Object<FunctionTemplate>::get_implementation(isolate, js_object) == nullptr) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"extends\": object does not wrap v8::FunctionTemplate.");
                 }
                 if (!target->_allow_construct) {
                     JS_THROW_ERROR(TypeError, isolate, "Invalid options: \"extends\" cannot be used when \"constructor\" is false");
                 }
-                target->_inherit.Reset(isolate, js_value.As<v8::Object>());
+                target->_inherit.Reset(isolate, js_object);
             }
         }
         {
@@ -361,7 +271,8 @@ namespace dragiyski::node_ext {
                 if (!js_value->IsObject()) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"prototypeProvider\": not an object.");
                 }
-                if (Object<FunctionTemplate>::get_implementation(isolate, js_value) == nullptr) {
+                auto js_object = js_value.As<v8::Object>();
+                if (Object<FunctionTemplate>::get_implementation(isolate, js_object) == nullptr) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"prototypeProvider\": object does not wrap v8::FunctionTemplate.");
                 }
                 if (!target->_inherit.IsEmpty()) {
@@ -370,7 +281,7 @@ namespace dragiyski::node_ext {
                 if (!target->_allow_construct) {
                     JS_THROW_ERROR(TypeError, isolate, "Invalid options: \"prototypeProvider\" cannot be used when \"constructor\" is false");
                 }
-                target->_inherit.Reset(isolate, js_value.As<v8::Object>());
+                target->_prototype_provider.Reset(isolate, js_object);
             }
         }
         {
@@ -412,8 +323,8 @@ namespace dragiyski::node_ext {
             }
         }
         v8::Local<v8::Signature> signature;
-        if (!target->_receiver.IsEmpty()) {
-            signature = v8::Signature::New(isolate, target->_receiver.Get(isolate));
+        if (!receiver_template.IsEmpty()) {
+            signature = v8::Signature::New(isolate, receiver_template);
         }
         auto function_template = v8::FunctionTemplate::New(isolate, callback, target->get_interface(isolate), signature, target->_length, target->_allow_construct ? v8::ConstructorBehavior::kAllow : v8::ConstructorBehavior::kThrow, target->_side_effect_type);
         {
@@ -433,9 +344,20 @@ namespace dragiyski::node_ext {
             auto name = StringTable::Get(isolate, "instance");
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
-                if (!target->_allow_construct) {
-                    JS_THROW_ERROR(TypeError, context "Invalid options: Option \"instance\" cannot be used when \"constructor\" is false");
+                if (!js_value->IsObject()) {
+                    JS_THROW_ERROR(TypeError, context, "Option \"instance\": Expected an [object], got ", type_of(context, js_value));
                 }
+                if (!target->_allow_construct) {
+                    JS_THROW_ERROR(TypeError, context, "Invalid options: Option \"instance\" cannot be used when \"constructor\" is false");
+                }
+                JS_EXPRESSION_RETURN(instance_interface, ObjectTemplate::get_template(isolate)->InstanceTemplate()->NewInstance(context));
+                auto js_object = js_value.As<v8::Object>();
+                auto instance_template = function_template->InstanceTemplate();
+                auto instance_target = std::unique_ptr<ObjectTemplate>(new ObjectTemplate());
+                instance_target->_value.Reset(isolate, instance_template);
+                instance_target->set_interface(isolate, instance_interface);
+                JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(ObjectTemplate::Setup(context, instance_target.get(), js_object), context, "Option \"instance\"");
+                target->_instance_template.Reset(isolate, instance_interface);
             }
         }
     }
@@ -447,7 +369,7 @@ namespace dragiyski::node_ext {
     v8::Local<v8::FunctionTemplate> FunctionTemplate::get_value(v8::Isolate* isolate) const {
         return _value.Get(isolate);
     }
-    v8::Local<v8::Function> FunctionTemplate::get_callee(v8::Isolate* isolate) const {
+    v8::Local<v8::Value> FunctionTemplate::get_callee(v8::Isolate* isolate) const {
         return _callee.Get(isolate);
     }
 }
