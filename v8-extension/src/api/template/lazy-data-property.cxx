@@ -36,6 +36,11 @@ namespace dragiyski::node_ext {
         per_isolate_template.erase(isolate);
     }
 
+    v8::Local<v8::FunctionTemplate> Template::LazyDataProperty::get_template(v8::Isolate* isolate) {
+        assert(per_isolate_template.contains(isolate));
+        return per_isolate_template[isolate].Get(isolate);
+    }
+
     void Template::LazyDataProperty::constructor(const v8::FunctionCallbackInfo<v8::Value> &info) {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();

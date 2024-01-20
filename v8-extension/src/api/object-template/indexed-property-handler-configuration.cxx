@@ -1,4 +1,4 @@
-#include "named-property-handler-configuration.hxx"
+#include "indexed-property-handler-configuration.hxx"
 
 #include <cassert>
 #include <map>
@@ -12,10 +12,10 @@ namespace dragiyski::node_ext {
         std::map<v8::Isolate *, Shared<v8::FunctionTemplate>> per_isolate_template;
     }
 
-    void ObjectTemplate::NamedPropertyHandlerConfiguration::initialize(v8::Isolate *isolate) {
+    void ObjectTemplate::IndexedPropertyHandlerConfiguration::initialize(v8::Isolate *isolate) {
         assert(!per_isolate_template.contains(isolate));
 
-        auto class_name = StringTable::Get(isolate, "NamedPropertyHandlerConfiguration");
+        auto class_name = StringTable::Get(isolate, "IndexedPropertyHandlerConfiguration");
         auto class_template = v8::FunctionTemplate::New(isolate, constructor);
         class_template->SetClassName(class_name);
         auto prototype_template = class_template->PrototypeTemplate();
@@ -33,16 +33,16 @@ namespace dragiyski::node_ext {
         );
     }
 
-    void ObjectTemplate::NamedPropertyHandlerConfiguration::uninitialize(v8::Isolate* isolate) {
+    void ObjectTemplate::IndexedPropertyHandlerConfiguration::uninitialize(v8::Isolate* isolate) {
         per_isolate_template.erase(isolate);
     }
 
-    v8::Local<v8::FunctionTemplate> ObjectTemplate::NamedPropertyHandlerConfiguration::get_template(v8::Isolate* isolate) {
+    v8::Local<v8::FunctionTemplate> ObjectTemplate::IndexedPropertyHandlerConfiguration::get_template(v8::Isolate* isolate) {
         assert(per_isolate_template.contains(isolate));
         return per_isolate_template[isolate].Get(isolate);
     }
 
-    void ObjectTemplate::NamedPropertyHandlerConfiguration::constructor(const v8::FunctionCallbackInfo<v8::Value> &info) {
+    void ObjectTemplate::IndexedPropertyHandlerConfiguration::constructor(const v8::FunctionCallbackInfo<v8::Value> &info) {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
@@ -63,7 +63,7 @@ namespace dragiyski::node_ext {
             JS_THROW_ERROR(TypeError, isolate, "argument 1 is not an object.");
         }
         auto options = info[0].As<v8::Object>();
-        auto target = std::unique_ptr<ObjectTemplate::NamedPropertyHandlerConfiguration>(new ObjectTemplate::NamedPropertyHandlerConfiguration());
+        auto target = std::unique_ptr<ObjectTemplate::IndexedPropertyHandlerConfiguration>(new ObjectTemplate::IndexedPropertyHandlerConfiguration());
 
         {
             auto name = StringTable::Get(isolate, "shared");
@@ -72,20 +72,14 @@ namespace dragiyski::node_ext {
                 target->_flags = static_cast<v8::PropertyHandlerFlags>(static_cast<unsigned int>(target->_flags) | static_cast<unsigned int>(v8::PropertyHandlerFlags::kAllCanRead));
             }
         }
-        {
+        // "Currently only valid for named interceptors." - If this becomes available for indexed interceptor, uncomment below:
+        /* {
             auto name = StringTable::Get(isolate, "fallback");
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
             if (!value->IsNullOrUndefined() && value->BooleanValue(isolate)) {
                 target->_flags = static_cast<v8::PropertyHandlerFlags>(static_cast<unsigned int>(target->_flags) | static_cast<unsigned int>(v8::PropertyHandlerFlags::kNonMasking));
             }
-        }
-        {
-            auto name = StringTable::Get(isolate, "string");
-            JS_EXPRESSION_RETURN(value, options->Get(context, name));
-            if (!value->IsNullOrUndefined() && value->BooleanValue(isolate)) {
-                target->_flags = static_cast<v8::PropertyHandlerFlags>(static_cast<unsigned int>(target->_flags) | static_cast<unsigned int>(v8::PropertyHandlerFlags::kOnlyInterceptStrings));
-            }
-        }
+        } */
         {
             auto name = StringTable::Get(isolate, "sideEffects");
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
@@ -166,35 +160,35 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().Set(info.This());
     }
 
-    const v8::PropertyHandlerFlags &ObjectTemplate::NamedPropertyHandlerConfiguration::get_flags() const {
+    const v8::PropertyHandlerFlags &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_flags() const {
         return _flags;
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::NamedPropertyHandlerConfiguration::get_getter(v8::Isolate *isolate) const {
+    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_getter(v8::Isolate *isolate) const {
         return _getter.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::NamedPropertyHandlerConfiguration::get_setter(v8::Isolate *isolate) const {
+    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_setter(v8::Isolate *isolate) const {
         return _setter.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::NamedPropertyHandlerConfiguration::get_query(v8::Isolate *isolate) const {
+    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_query(v8::Isolate *isolate) const {
         return _query.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::NamedPropertyHandlerConfiguration::get_deleter(v8::Isolate *isolate) const {
+    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_deleter(v8::Isolate *isolate) const {
         return _deleter.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::NamedPropertyHandlerConfiguration::get_enumerator(v8::Isolate *isolate) const {
+    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_enumerator(v8::Isolate *isolate) const {
         return _enumerator.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::NamedPropertyHandlerConfiguration::get_definer(v8::Isolate *isolate) const {
+    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_definer(v8::Isolate *isolate) const {
         return _definer.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::NamedPropertyHandlerConfiguration::get_descriptor(v8::Isolate *isolate) const {
+    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_descriptor(v8::Isolate *isolate) const {
         return _descriptor.Get(isolate);
     }
 }

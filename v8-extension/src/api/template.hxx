@@ -47,20 +47,20 @@ namespace dragiyski::node_ext {
         static v8::Local<v8::Private> get_template_symbol(v8::Isolate *isolate);
     public:
         template <typename Type>
-        static v8::Maybe<void> Setup(v8::Local<v8::Context> context, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Value> properties);
-        static v8::Maybe<void> SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::Template> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value);
+        static v8::Maybe<void> Setup(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Value> properties);
+        static v8::Maybe<void> SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::Template> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value);
     private:
         template <typename Type>
-        static v8::Maybe<void> SetupFromMap(v8::Local<v8::Context> context, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Map> properties);
+        static v8::Maybe<void> SetupFromMap(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Map> properties);
         template <typename Type>
-        static v8::Maybe<void> SetupFromObject(v8::Local<v8::Context> context, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Object> properties);
+        static v8::Maybe<void> SetupFromObject(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Object> properties);
     public:
         class NativeDataProperty;
         class LazyDataProperty;
     };
 
     template<class Type>
-    inline v8::Maybe<void> Template::Setup(v8::Local<v8::Context> context, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Value> source) {
+    inline v8::Maybe<void> Template::Setup(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Value> source) {
         static const constexpr auto __function_return_type__ = v8::Nothing<void>;
         auto isolate = context->GetIsolate();
         v8::HandleScope scope(isolate);
@@ -71,9 +71,9 @@ namespace dragiyski::node_ext {
             auto frozen_map = Object<FrozenMap>::get_implementation(isolate, source.As<v8::Object>());
             if (frozen_map != nullptr) {
                 auto mutable_map = frozen_map->get_map(isolate);
-                JS_EXPRESSION_IGNORE(SetupFromMap<Type>(context, target, map, mutable_map));
+                JS_EXPRESSION_IGNORE(SetupFromMap<Type>(context, interface, target, map, mutable_map));
             } else {
-                JS_EXPRESSION_IGNORE(SetupFromObject<Type>(context, target, map, source.As<v8::Object>()));
+                JS_EXPRESSION_IGNORE(SetupFromObject<Type>(context, interface, target, map, source.As<v8::Object>()));
             }
         } else {
             JS_THROW_ERROR(TypeError, isolate, "Cannot convert value to [object Map], [object FrozenMap], or [object Object].");
@@ -82,7 +82,7 @@ namespace dragiyski::node_ext {
     }
 
     template<class Type>
-    inline v8::Maybe<void> Template::SetupFromMap(v8::Local<v8::Context> context, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Map> source) {
+    inline v8::Maybe<void> Template::SetupFromMap(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Map> source) {
         static const constexpr auto __function_return_type__ = v8::Nothing<void>;
         auto isolate = context->GetIsolate();
         v8::HandleScope scope(isolate);
@@ -91,14 +91,14 @@ namespace dragiyski::node_ext {
         for (decltype(key_value->Length()) i = 0; i < key_value->Length(); i += 2) {
             JS_EXPRESSION_RETURN(key, key_value->Get(context, i + 0));
             JS_EXPRESSION_RETURN(value, key_value->Get(context, i + 1));
-            JS_EXPRESSION_IGNORE(Type::SetupProperty(context, target, map, key, value));
+            JS_EXPRESSION_IGNORE(Type::SetupProperty(context, interface, target, map, key, value));
         }
 
         return v8::JustVoid();
     }
 
     template<class Type>
-    inline v8::Maybe<void> Template::SetupFromObject(v8::Local<v8::Context> context, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Object> source) {
+    inline v8::Maybe<void> Template::SetupFromObject(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<typename Type::js_type> target, v8::Local<v8::Map> map, v8::Local<v8::Object> source) {
         static const constexpr auto __function_return_type__ = v8::Nothing<void>;
         auto isolate = context->GetIsolate();
         v8::HandleScope scope(isolate);
@@ -107,7 +107,7 @@ namespace dragiyski::node_ext {
         for (decltype(keys->Length()) i = 0; i < keys->Length(); i++) {
             JS_EXPRESSION_RETURN(key, keys->Get(context, i));
             JS_EXPRESSION_RETURN(value, source->Get(context, key));
-            JS_EXPRESSION_IGNORE(Type::SetupProperty(context, target, map, key, value));
+            JS_EXPRESSION_IGNORE(Type::SetupProperty(context, interface, target, map, key, value));
         }
 
         return v8::JustVoid();

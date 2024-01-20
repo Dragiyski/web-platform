@@ -65,7 +65,7 @@ namespace dragiyski::node_ext {
             target->SetNativeDataProperty(
                 key_name,
                 NativeDataProperty::getter_callback,
-                !setter.IsEmpty() && setter->IsFunction() ? NativeDataProperty::setter_callback : nullptr,
+                !setter.IsEmpty() ? NativeDataProperty::setter_callback : nullptr,
                 value_object,
                 value_native_data_property->get_attributes(),
                 value_native_data_property->get_access_control(),

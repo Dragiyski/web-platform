@@ -1,5 +1,5 @@
-#ifndef NODE_EXT_API_OBJECT_TEMPLATE_NAMED_PROPERTY_HANDLER_CONFIGURATION_HXX
-#define NODE_EXT_API_OBJECT_TEMPLATE_NAMED_PROPERTY_HANDLER_CONFIGURATION_HXX
+#ifndef NODE_EXT_API_OBJECT_TEMPLATE_INDEXED_PROPERTY_HANDLER_CONFIGURATION_HXX
+#define NODE_EXT_API_OBJECT_TEMPLATE_INDEXED_PROPERTY_HANDLER_CONFIGURATION_HXX
 
 #include <v8.h>
 #include "../object-template.hxx"
@@ -8,7 +8,7 @@
 
 namespace dragiyski::node_ext {
     using namespace js;
-    class ObjectTemplate::NamedPropertyHandlerConfiguration : public Object<ObjectTemplate::NamedPropertyHandlerConfiguration> {
+    class ObjectTemplate::IndexedPropertyHandlerConfiguration : public Object<ObjectTemplate::IndexedPropertyHandlerConfiguration> {
     public:
         static void initialize(v8::Isolate* isolate);
         static void uninitialize(v8::Isolate* isolate);
@@ -29,12 +29,12 @@ namespace dragiyski::node_ext {
         const v8::Local<v8::Value> &get_definer(v8::Isolate *isolate) const;
         const v8::Local<v8::Value> &get_descriptor(v8::Isolate *isolate) const;
     protected:
-        NamedPropertyHandlerConfiguration() = default;
-        NamedPropertyHandlerConfiguration(const NamedPropertyHandlerConfiguration&) = delete;
-        NamedPropertyHandlerConfiguration(NamedPropertyHandlerConfiguration&&) = delete;
+        IndexedPropertyHandlerConfiguration() = default;
+        IndexedPropertyHandlerConfiguration(const IndexedPropertyHandlerConfiguration&) = delete;
+        IndexedPropertyHandlerConfiguration(IndexedPropertyHandlerConfiguration&&) = delete;
     public:
-        virtual ~NamedPropertyHandlerConfiguration() override = default;
+        virtual ~IndexedPropertyHandlerConfiguration() override = default;
     };
 }
 
-#endif /* NODE_EXT_API_OBJECT_TEMPLATE_NAMED_PROPERTY_HANDLER_CONFIGURATION_HXX */
+#endif /* NODE_EXT_API_OBJECT_TEMPLATE_INDEXED_PROPERTY_HANDLER_CONFIGURATION_HXX */

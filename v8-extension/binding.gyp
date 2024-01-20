@@ -21,6 +21,9 @@
                 "src/api/template/lazy-data-property.cxx",
                 "src/api/template/native-data-property.cxx",
                 "src/api/function-template.cxx",
+                "src/api/object-template/accessor-property.cxx",
+                "src/api/object-template/named-property-handler-configuration.cxx",
+                "src/api/object-template/indexed-property-handler-configuration.cxx",
                 "src/api/object-template.cxx",
             ]
         }

@@ -133,7 +133,7 @@ namespace dragiyski::node_ext {
             JS_THROW_ERROR(TypeError, isolate, "1 argument required, but only ", info.Length(), " present.");
         }
         if V8_UNLIKELY(!info[0]->IsObject()) {
-            JS_THROW_ERROR(TypeError, isolate, "Expected arguments[0] to be an object.");
+            JS_THROW_ERROR(TypeError, context, "Expected arguments[0] to be an [object], got ", type_of(context, info[0]));
         }
         auto object = info[0].As<v8::Object>();
         auto value = implementation->get_value(isolate);
@@ -168,8 +168,15 @@ namespace dragiyski::node_ext {
         auto object = info[0].As<v8::Object>();
         auto value = implementation->get_value(isolate);
 
-        JS_EXPRESSION_RETURN(return_value, object->SetPrivate(context, value, info[1]));
-        info.GetReturnValue().Set(return_value);
+        JS_EXPRESSION_RETURN(has_private, object->HasPrivate(context, value));
+        if V8_UNLIKELY(!has_private) {
+            info.GetReturnValue().SetUndefined();
+        } else {
+            JS_EXPRESSION_RETURN(return_value, object->GetPrivate(context, value));
+            info.GetReturnValue().Set(return_value);
+        }
+
+        JS_EXPRESSION_IGNORE(object->SetPrivate(context, value, info[1]));
     }
 
     void Private::prototype_has(const v8::FunctionCallbackInfo<v8::Value> &info) {

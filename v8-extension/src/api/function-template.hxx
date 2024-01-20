@@ -44,8 +44,8 @@
         static void callback(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void prototype_get(const v8::FunctionCallbackInfo<v8::Value>& info);
     public:
-        static v8::Maybe<void> Setup(v8::Local<v8::Context> context, FunctionTemplate *target, v8::Local<v8::Object> options);
-        static v8::Maybe<void> SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::FunctionTemplate> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value);
+        static v8::Maybe<FunctionTemplate *> Create(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::Object> options);
+        static v8::Maybe<void> SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::FunctionTemplate> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value);
     private:
         Shared<v8::FunctionTemplate> _value;
         Shared<v8::Value> _callee;

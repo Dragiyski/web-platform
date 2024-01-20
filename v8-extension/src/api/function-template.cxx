@@ -80,7 +80,6 @@ namespace dragiyski::node_ext {
         if (!info.IsConstructCall()) {
             JS_THROW_ERROR(TypeError, isolate, "Class constructor ", "FunctionTemplate", " cannot be invoked without 'new'");
         }
-        info.GetReturnValue().Set(info.This());
 
         if (info.Length() < 1) {
             JS_THROW_ERROR(TypeError, isolate, "1 argument required, but only ", info.Length(), " present.");
@@ -90,9 +89,8 @@ namespace dragiyski::node_ext {
         }
         auto options = info[0].As<v8::Object>();
 
-        auto target = std::unique_ptr<FunctionTemplate>(new FunctionTemplate());
-        target->set_interface(isolate, info.This());
-        JS_EXPRESSION_IGNORE(Setup(context, target.get(), options));
+        JS_EXPRESSION_IGNORE(Create(context, info.This(), options));
+        info.GetReturnValue().Set(info.This());
     }
 
     void FunctionTemplate::callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
@@ -175,10 +173,14 @@ namespace dragiyski::node_ext {
         info.GetReturnValue().Set(callee);
     }
 
-    v8::Maybe<void> FunctionTemplate::Setup(v8::Local<v8::Context> context, FunctionTemplate* target, v8::Local<v8::Object> options) {
-        static const constexpr auto __function_return_type__ = v8::Nothing<void>;
+    v8::Maybe<FunctionTemplate *> FunctionTemplate::Create(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::Object> options) {
+        static const constexpr auto __function_return_type__ = v8::Nothing<FunctionTemplate *>;
         auto isolate = context->GetIsolate();
         v8::HandleScope scope(isolate);
+
+        auto target = std::unique_ptr<FunctionTemplate>(new FunctionTemplate());
+        target->set_interface(isolate, interface);
+
         {
             v8::Local<v8::Value> callee;
             auto name = StringTable::Get(isolate, "function");
@@ -335,7 +337,7 @@ namespace dragiyski::node_ext {
                     JS_THROW_ERROR(TypeError, context, "Option \"properties\": Expected an [object], got ", type_of(context, js_value));
                 }
                 auto target_map = v8::Map::New(isolate);
-                JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(Template::Setup<FunctionTemplate>(context, function_template, target_map, js_value), context, "Option \"properties\"");
+                JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(Template::Setup<FunctionTemplate>(context, interface, function_template, target_map, js_value), context, "Option \"properties\"");
                 JS_EXPRESSION_RETURN(frozen_map, FrozenMap::Create(context, target_map));
                 target->_properties.Reset(isolate, frozen_map);
             }
@@ -350,20 +352,37 @@ namespace dragiyski::node_ext {
                 if (!target->_allow_construct) {
                     JS_THROW_ERROR(TypeError, context, "Invalid options: Option \"instance\" cannot be used when \"constructor\" is false");
                 }
-                JS_EXPRESSION_RETURN(instance_interface, ObjectTemplate::get_template(isolate)->InstanceTemplate()->NewInstance(context));
                 auto js_object = js_value.As<v8::Object>();
                 auto instance_template = function_template->InstanceTemplate();
-                auto instance_target = std::unique_ptr<ObjectTemplate>(new ObjectTemplate());
-                instance_target->_value.Reset(isolate, instance_template);
-                instance_target->set_interface(isolate, instance_interface);
-                JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(ObjectTemplate::Setup(context, instance_target.get(), js_object), context, "Option \"instance\"");
-                target->_instance_template.Reset(isolate, instance_interface);
+                JS_EXPRESSION_RETURN(interface, ObjectTemplate::get_template(isolate)->InstanceTemplate()->NewInstance(context));
+                JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(ObjectTemplate::Create(context, interface, instance_template, js_object), context, "Option \"instance\"");
+                target->_instance_template.Reset(isolate, interface);
+            }
+        }
+        {
+            auto name = StringTable::Get(isolate, "prototype");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                if (!js_value->IsObject()) {
+                    JS_THROW_ERROR(TypeError, context, "Option \"prototype\": Expected an [object], got ", type_of(context, js_value));
+                }
+                if (!target->_allow_construct) {
+                    JS_THROW_ERROR(TypeError, context, "Invalid options: Option \"prototype\" cannot be used when \"constructor\" is false");
+                }
+                if (!target->_prototype_provider.IsEmpty()) {
+                    JS_THROW_ERROR(TypeError, context, "Invalid options: Option \"prototype\" cannot be used together with option \"prototypeProvider\"");
+                }
+                auto js_object = js_value.As<v8::Object>();
+                auto prototype_template = function_template->PrototypeTemplate();
+                JS_EXPRESSION_RETURN(interface, ObjectTemplate::get_template(isolate)->InstanceTemplate()->NewInstance(context));
+                JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(ObjectTemplate::Create(context, interface, prototype_template, js_object), context, "Option \"prototype\"");
+                target->_prototype_template.Reset(isolate, interface);
             }
         }
     }
 
-    v8::Maybe<void> FunctionTemplate::SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::FunctionTemplate> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value) {
-        return Template::SetupProperty(context, target, map, key, value);
+    v8::Maybe<void> FunctionTemplate::SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::FunctionTemplate> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value) {
+        return Template::SetupProperty(context, interface, target, map, key, value);
     }
 
     v8::Local<v8::FunctionTemplate> FunctionTemplate::get_value(v8::Isolate* isolate) const {

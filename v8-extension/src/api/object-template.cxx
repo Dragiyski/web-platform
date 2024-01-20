@@ -1,11 +1,16 @@
 #include "object-template.hxx"
 
-#include <map>
-#include <vector>
+#include "object-template/accessor-property.hxx"
+#include "object-template/named-property-handler-configuration.hxx"
+#include "object-template/indexed-property-handler-configuration.hxx"
+#include "template.hxx"
+#include "frozen-map.hxx"
 
 #include "../error-message.hxx"
 #include "../js-string-table.hxx"
-#include "context.hxx"
+
+#include <map>
+#include <vector>
 
 namespace dragiyski::node_ext {
     using namespace js;
@@ -57,10 +62,51 @@ namespace dragiyski::node_ext {
         return per_isolate_template[isolate].Get(isolate);
     }
 
-    v8::Maybe<void> ObjectTemplate::Setup(v8::Local<v8::Context> context, ObjectTemplate* target, v8::Local<v8::Object> options) {
-        static const constexpr auto __function_return_type__ = v8::Nothing<void>;
+    v8::Maybe<ObjectTemplate *> ObjectTemplate::Create(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::Object> options) {
+        static const constexpr auto __function_return_type__ = v8::Nothing<ObjectTemplate *>;
         auto isolate = context->GetIsolate();
         v8::HandleScope scope(isolate);
+
+        v8::Local<v8::ObjectTemplate> target;
+        v8::Local<v8::FunctionTemplate> target_constructor;
+        {
+            auto name = StringTable::Get(isolate, "constructor");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                JS_EXPRESSION_RETURN(attributes, options->GetPropertyAttributes(context, name));
+                if (!(attributes & static_cast<uint>(v8::PropertyAttribute::DontEnum))) {
+                    if V8_UNLIKELY(!js_value->IsObject()) {
+                        JS_THROW_ERROR(TypeError, isolate, "Option \"constructor\" is not an [object FunctionTemplate]");
+                    }
+                    auto js_object = js_value.As<v8::Object>();
+                    auto implementation = Object<FunctionTemplate>::get_implementation(isolate, js_object);
+                    if (implementation == nullptr) {
+                        JS_THROW_ERROR(TypeError, isolate, "Option \"constructor\" is not an [object FunctionTemplate]");
+                    }
+                    target_constructor = implementation->get_value(isolate);
+                }
+            }
+        }
+
+        if (!target_constructor.IsEmpty()) {
+            target = v8::ObjectTemplate::New(isolate, target_constructor);
+        } else {
+            target = v8::ObjectTemplate::New(isolate);
+        }
+
+        return Create(context, target, options);
+    }
+
+    v8::Maybe<ObjectTemplate *> ObjectTemplate::Create(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::ObjectTemplate> js_target, v8::Local<v8::Object> options) {
+        static const constexpr auto __function_return_type__ = v8::Nothing<ObjectTemplate *>;
+        auto isolate = context->GetIsolate();
+        v8::HandleScope scope(isolate);
+
+        // Usage of unique_ptr here, so in case function returns early (due to error) this is destroyed.
+        // We (should) call .release() at the end of this function.
+        auto target = std::unique_ptr<ObjectTemplate>(new ObjectTemplate());
+        target->set_interface(isolate, interface);
+        target->_value.Reset(isolate, js_target);
 
         target->_undetectable = false;
         {
@@ -68,6 +114,9 @@ namespace dragiyski::node_ext {
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 target->_undetectable = js_value->BooleanValue(isolate);
+                if (target->_undetectable) {
+                    js_target->MarkAsUndetectable();
+                }
             }
         }
 
@@ -77,6 +126,9 @@ namespace dragiyski::node_ext {
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 target->_code_like = js_value->BooleanValue(isolate);
+                if (target->_code_like) {
+                        js_target->SetCodeLike();
+                }
             }
         }
 
@@ -86,6 +138,9 @@ namespace dragiyski::node_ext {
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 target->_immutable_prototype = js_value->BooleanValue(isolate);
+                if (target->_immutable_prototype) {
+                    js_target->SetImmutableProto();
+                }
             }
         }
 
@@ -94,63 +149,80 @@ namespace dragiyski::node_ext {
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 if (!js_value->IsObject()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"namedHandler\" is not an object");
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"namedHandler\" is not an [object NamedPropertyHandlerConfiguration]");
                 }
                 auto js_object = js_value.As<v8::Object>();
-                v8::Local<v8::Value> target_key[11], target_value[11];
-                std::size_t target_size = 0;
-                v8::NamedPropertyHandlerConfiguration named_handler;
-                named_handler.flags = v8::PropertyHandlerFlags::kNone;
-                {
-                    auto name = StringTable::Get(isolate, "shared");
-                    JS_EXPRESSION_RETURN(value, js_object->Get(context, name));
-                    if (!value->IsNullOrUndefined() && value->BooleanValue(isolate)) {
-                        named_handler.flags = static_cast<v8::PropertyHandlerFlags>(static_cast<unsigned int>(named_handler.flags) | static_cast<unsigned int>(v8::PropertyHandlerFlags::kAllCanRead));
-                    }
+                auto named_handler = Object<NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_object);
+                if (named_handler == nullptr) {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"namedHandler\" is not an [object NamedPropertyHandlerConfiguration]");
                 }
-                {
-                    auto name = StringTable::Get(isolate, "fallback");
-                    JS_EXPRESSION_RETURN(value, value_named_handler->Get(context, name));
-                    if (!value->IsNullOrUndefined() && value->BooleanValue(isolate)) {
-                        named_handler.flags = static_cast<v8::PropertyHandlerFlags>(static_cast<unsigned int>(named_handler.flags) | static_cast<unsigned int>(v8::PropertyHandlerFlags::kNonMasking));
-                    }
+                target->_name_handler.Reset(isolate, js_object);
+                v8::NamedPropertyHandlerConfiguration configuration;
+                configuration.flags = named_handler->get_flags();
+                if (!named_handler->get_getter(isolate).IsEmpty()) {
+                    configuration.getter = NamedPropertyGetterCallback;
                 }
-                {
-                    auto name = StringTable::Get(isolate, "string");
-                    JS_EXPRESSION_RETURN(value, value_named_handler->Get(context, name));
-                    if (!value->IsNullOrUndefined() && value->BooleanValue(isolate)) {
-                        named_handler.flags = static_cast<v8::PropertyHandlerFlags>(static_cast<unsigned int>(named_handler.flags) | static_cast<unsigned int>(v8::PropertyHandlerFlags::kOnlyInterceptStrings));
-                    }
+                if (!named_handler->get_setter(isolate).IsEmpty()) {
+                    configuration.setter = NamedPropertySetterCallback;
                 }
-                {
-                    auto name = StringTable::Get(isolate, "sideEffects");
-                    JS_EXPRESSION_RETURN(value, value_named_handler->Get(context, name));
-                    if (!value->IsNullOrUndefined() && !value->BooleanValue(isolate)) {
-                        named_handler.flags = static_cast<v8::PropertyHandlerFlags>(static_cast<unsigned int>(named_handler.flags) | static_cast<unsigned int>(v8::PropertyHandlerFlags::kHasNoSideEffect));
-                    }
+                if (!named_handler->get_query(isolate).IsEmpty()) {
+                    configuration.query = NamedPropertyQueryCallback;
                 }
-#define OBJECT_TEMPLATE_SETUP_GET_HANDLER_CALLBACK_FROM_OBJECT(variable, property_name)                                                     \
-    {                                                                                                                                       \
-        auto name = StringTable::Get(isolate, property_name);                                                                               \
-        JS_EXPRESSION_RETURN(value, value_named_handler->Get(context, name));                                                               \
-        if (!value->IsNullOrUndefined()) {                                                                                                  \
-            if (value->IsFunction()) {                                                                                                      \
-                variable = value;                                                                                                           \
-            } else if (value->IsObject() && value.As<v8::Object>()->IsCallable()) {                                                         \
-                variable = value;                                                                                                           \
-            } else {                                                                                                                        \
-                JS_THROW_ERROR(TypeError, isolate, "Option", " ", "\"", "namedHandler", ".", property_name, "\"", " ", "is not an object"); \
-            }                                                                                                                               \
-        }                                                                                                                                   \
-    }
-                OBJECT_TEMPLATE_SETUP_GET_HANDLER_CALLBACK_FROM_OBJECT(named_getter, "getter");
-                OBJECT_TEMPLATE_SETUP_GET_HANDLER_CALLBACK_FROM_OBJECT(named_setter, "setter");
-                OBJECT_TEMPLATE_SETUP_GET_HANDLER_CALLBACK_FROM_OBJECT(named_query, "query");
-                OBJECT_TEMPLATE_SETUP_GET_HANDLER_CALLBACK_FROM_OBJECT(named_deleter, "deleter");
-                OBJECT_TEMPLATE_SETUP_GET_HANDLER_CALLBACK_FROM_OBJECT(named_enumerator, "enumerator");
-                OBJECT_TEMPLATE_SETUP_GET_HANDLER_CALLBACK_FROM_OBJECT(named_definer, "definer");
-                OBJECT_TEMPLATE_SETUP_GET_HANDLER_CALLBACK_FROM_OBJECT(named_descriptor, "descriptor");
-#undef OBJECT_TEMPLATE_SETUP_GET_HANDLER_CALLBACK_FROM_OBJECT
+                if (!named_handler->get_deleter(isolate).IsEmpty()) {
+                    configuration.deleter = NamedPropertyDeleterCallback;
+                }
+                if (!named_handler->get_enumerator(isolate).IsEmpty()) {
+                    configuration.enumerator = NamedPropertyEnumeratorCallback;
+                }
+                if (!named_handler->get_definer(isolate).IsEmpty()) {
+                    configuration.definer = NamedPropertyDefinerCallback;
+                }
+                if (!named_handler->get_descriptor(isolate).IsEmpty()) {
+                    configuration.descriptor = NamedPropertyDescriptorCallback;
+                }
+                configuration.data = interface;
+                js_target->SetHandler(configuration);
+            }
+        }
+
+        {
+            auto name = StringTable::Get(isolate, "indexedHandler");
+            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
+            if (!js_value->IsNullOrUndefined()) {
+                if (!js_value->IsObject()) {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"indexedHandler\" is not an [object IndexedPropertyHandlerConfiguration]");
+                }
+                auto js_object = js_value.As<v8::Object>();
+                auto indexed_handler = Object<IndexedPropertyHandlerConfiguration>::get_implementation(isolate, js_object);
+                if (indexed_handler == nullptr) {
+                    JS_THROW_ERROR(TypeError, isolate, "Option \"indexedHandler\" is not an [object IndexedPropertyHandlerConfiguration]");
+                }
+                target->_index_handler.Reset(isolate, js_object);
+                v8::IndexedPropertyHandlerConfiguration configuration;
+                configuration.flags = indexed_handler->get_flags();
+                if (!indexed_handler->get_getter(isolate).IsEmpty()) {
+                    configuration.getter = IndexedPropertyGetterCallback;
+                }
+                if (!indexed_handler->get_setter(isolate).IsEmpty()) {
+                    configuration.setter = IndexedPropertySetterCallback;
+                }
+                if (!indexed_handler->get_query(isolate).IsEmpty()) {
+                    configuration.query = IndexedPropertyQueryCallback;
+                }
+                if (!indexed_handler->get_deleter(isolate).IsEmpty()) {
+                    configuration.deleter = IndexedPropertyDeleterCallback;
+                }
+                if (!indexed_handler->get_enumerator(isolate).IsEmpty()) {
+                    configuration.enumerator = IndexedPropertyEnumeratorCallback;
+                }
+                if (!indexed_handler->get_definer(isolate).IsEmpty()) {
+                    configuration.definer = IndexedPropertyDefinerCallback;
+                }
+                if (!indexed_handler->get_descriptor(isolate).IsEmpty()) {
+                    configuration.descriptor = IndexedPropertyDescriptorCallback;
+                }
+                configuration.data = interface;
+                js_target->SetHandler(configuration);
             }
         }
 
@@ -162,51 +234,82 @@ namespace dragiyski::node_ext {
                 if (!value->IsObject()) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"properties\" is not an object");
                 }
+                auto target_map = v8::Map::New(isolate);
+                JS_EXPRESSION_IGNORE_WITH_ERROR_PREFIX(Template::Setup<ObjectTemplate>(context, interface, js_target, target_map, value.As<v8::Object>()), context, "Option \"properties\"");
+                JS_EXPRESSION_RETURN(frozen_map, FrozenMap::Create(context, target_map));
+                target->_properties.Reset(isolate, frozen_map);
             }
         }
+
+        return v8::Just(target.release());
     }
 
-    v8::Maybe<void> ObjectTemplate::ConfigureTemplate(v8::Local<v8::Context> context, v8::Local<v8::ObjectTemplate> value, v8::Local<v8::Object> settings) {
+    v8::Maybe<void> ObjectTemplate::SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::ObjectTemplate> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value) {
         static const constexpr auto __function_return_type__ = v8::Nothing<void>;
         auto isolate = context->GetIsolate();
         v8::HandleScope scope(isolate);
 
-        bool mark_as_undectable = false;
-        {
-            auto name = StringTable::Get(isolate, "undetectable");
-            JS_EXPRESSION_RETURN(js_value, settings->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                mark_as_undectable = js_value->BooleanValue(isolate);
-            }
-        }
-
-        bool is_code_like = false;
-        {
-            auto name = StringTable::Get(isolate, "codeLike");
-            JS_EXPRESSION_RETURN(js_value, settings->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                is_code_like = js_value->BooleanValue(isolate);
-            }
-        }
-
-        bool immutable_prototype = false;
-        {
-            auto name = StringTable::Get(isolate, "immutablePrototype");
-            JS_EXPRESSION_RETURN(js_value, settings->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                immutable_prototype = js_value->BooleanValue(isolate);
-            }
-        }
-
-        v8::Local<v8::Object> properties;
-        {
-            auto name = StringTable::Get(isolate, "properties");
-            JS_EXPRESSION_RETURN(value, settings->Get(context, name));
-            if (!value->IsNullOrUndefined()) {
-                if (!value->IsObject()) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"properties\" is not an object");
+        if V8_LIKELY(value->IsObject()) {
+            auto value_object = value.As<v8::Object>();
+            auto value_accessor_property = Object<AccessorProperty>::get_implementation(isolate, value_object);
+            if (value_accessor_property != nullptr) {
+                if V8_UNLIKELY(key->IsObject() || key->IsExternal()) {
+                    JS_THROW_ERROR(TypeError, isolate, "Template native data property key must be a primitive");
+                } else if V8_UNLIKELY(!key->IsName()) {
+                    JS_EXPRESSION_RETURN(key_string, key->ToString(context));
+                    key = key_string;
                 }
+                auto key_name = key.As<v8::Name>();
+                auto setter = value_accessor_property->get_setter(isolate);
+                JS_EXPRESSION_IGNORE(map->Set(context, key, value));
+                v8::Local<v8::Object> data;
+                {
+                    v8::Local<v8::Name> names[] = {
+                        StringTable::Get(isolate, "descriptor"),
+                        StringTable::Get(isolate, "template")
+                    };
+                    v8::Local<v8::Value> values[] = {
+                        value,
+                        interface
+                    };
+                    data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+                }
+                target->SetAccessor(
+                    key_name,
+                    AccessorProperty::getter_callback,
+                    !setter.IsEmpty() ? AccessorProperty::setter_callback : nullptr,
+                    data,
+                    value_accessor_property->get_access_control(),
+                    value_accessor_property->get_attributes(),
+                    value_accessor_property->get_getter_side_effect(),
+                    value_accessor_property->get_setter_side_effect()
+                );
+                return v8::JustVoid();
             }
         }
+
+        return Template::SetupProperty(context, interface, target, map, key, value);
+    }
+
+    void ObjectTemplate::constructor(const v8::FunctionCallbackInfo<v8::Value>& info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if (!info.IsConstructCall()) {
+            JS_THROW_ERROR(TypeError, isolate, "Class constructor ", "ObjectTemplate", " cannot be invoked without 'new'");
+        }
+
+        if (info.Length() < 1) {
+            JS_THROW_ERROR(TypeError, isolate, "1 argument required, but only ", info.Length(), " present.");
+        }
+        if (!info[0]->IsObject()) {
+            JS_THROW_ERROR(TypeError, isolate, "argument 1 is not an object.");
+        }
+        auto options = info[0].As<v8::Object>();
+
+        JS_EXPRESSION_IGNORE(Create(context, info.This(), options));
+        info.GetReturnValue().Set(info.This());
     }
 }

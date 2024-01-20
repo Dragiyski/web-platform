@@ -1,6 +1,8 @@
 #ifndef NODE_EXT_API_OBJECT_TEMPLATE_HXX
 #define NODE_EXT_API_OBJECT_TEMPLATE_HXX
 
+#include <memory>
+
 #include <v8.h>
 #include "../js-helper.hxx"
 #include "../object.hxx"
@@ -21,11 +23,12 @@ namespace dragiyski::node_ext {
     public:
         static void initialize(v8::Isolate* isolate);
         static void uninitialize(v8::Isolate* isolate);
-        static v8::Maybe<void> ConfigureTemplate(v8::Local<v8::Context> context, v8::Local<v8::ObjectTemplate> value, v8::Local<v8::Object> settings);
     public:
         static v8::Local<v8::FunctionTemplate> get_template(v8::Isolate* isolate);
     public:
-        static v8::Maybe<void> Setup(v8::Local<v8::Context> context, ObjectTemplate* target, v8::Local<v8::Object> options);
+        static v8::Maybe<ObjectTemplate *> Create(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::Object> options);
+        static v8::Maybe<ObjectTemplate *> Create(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::ObjectTemplate> js_target, v8::Local<v8::Object> options);
+        static v8::Maybe<void> SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::ObjectTemplate> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value);
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
     public:
@@ -48,9 +51,16 @@ namespace dragiyski::node_ext {
         bool _undetectable;
         bool _code_like;
         bool _immutable_prototype;
-        Shared<v8::Object> _name_handler, _index_handler;
+        Shared<v8::Object> _name_handler, _index_handler, _constructor, _properties;
+        Shared<v8::Function> _function, _access_check;
     public:
         v8::Local<v8::ObjectTemplate> get_value(v8::Isolate *isolate) const;
+        bool is_undetectable() const;
+        bool is_immutable_prototype() const;
+        v8::Local<v8::Object> get_name_handler(v8::Isolate *isolate) const;
+        v8::Local<v8::Object> get_index_handler(v8::Isolate *isolate) const;
+        v8::Local<v8::Object> get_constructor(v8::Isolate *isolate) const;
+        v8::Local<v8::Object> get_properties(v8::Isolate *isolate) const;
     protected:
         ObjectTemplate() = default;
         ObjectTemplate(const ObjectTemplate&) = delete;
@@ -60,6 +70,7 @@ namespace dragiyski::node_ext {
     public:
         class NamedPropertyHandlerConfiguration;
         class IndexedPropertyHandlerConfiguration;
+        class AccessorProperty;
     };
 }
 
