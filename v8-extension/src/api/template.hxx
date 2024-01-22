@@ -66,7 +66,7 @@ namespace dragiyski::node_ext {
         v8::HandleScope scope(isolate);
 
         if (source->IsMap()) {
-            JS_EXPRESSION_IGNORE(SetupFromMap<Type>(context, target, map, source.As<v8::Map>()));
+            JS_EXPRESSION_IGNORE(SetupFromMap<Type>(context, interface, target, map, source.As<v8::Map>()));
         } else if (source->IsObject()) {
             auto frozen_map = Object<FrozenMap>::get_implementation(isolate, source.As<v8::Object>());
             if (frozen_map != nullptr) {

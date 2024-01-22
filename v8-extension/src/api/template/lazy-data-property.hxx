@@ -19,25 +19,16 @@ namespace dragiyski::node_ext {
     public:
         static void getter_callback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info);
     private:
-        Shared<v8::Function> _getter;
-        Shared<v8::Function> _setter;
+        Shared<v8::Value> _getter;
         v8::PropertyAttribute _attributes;
-        Shared<v8::Object> _signature_object;
-        Shared<v8::Signature> _signature;
         v8::SideEffectType _getter_side_effect, _setter_side_effect;
     public:
-        v8::Local<v8::Function> get_getter(v8::Isolate* isolate) const;
+        v8::Local<v8::Value> get_getter(v8::Isolate* isolate) const;
         v8::PropertyAttribute get_attributes() const;
         v8::SideEffectType get_getter_side_effect() const;
         v8::SideEffectType get_setter_side_effect() const;
     protected:
-        LazyDataProperty(
-            v8::Isolate *isolate,
-            v8::Local<v8::Function> getter,
-            v8::PropertyAttribute attributes,
-            v8::SideEffectType getter_side_effect,
-            v8::SideEffectType setter_side_effect
-        );
+        LazyDataProperty() = default;
         LazyDataProperty(const LazyDataProperty&) = delete;
         LazyDataProperty(NativeDataProperty&&) = delete;
     public:

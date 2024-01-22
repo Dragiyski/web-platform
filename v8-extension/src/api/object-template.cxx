@@ -94,7 +94,7 @@ namespace dragiyski::node_ext {
             target = v8::ObjectTemplate::New(isolate);
         }
 
-        return Create(context, target, options);
+        return Create(context, interface, target, options);
     }
 
     v8::Maybe<ObjectTemplate *> ObjectTemplate::Create(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::ObjectTemplate> js_target, v8::Local<v8::Object> options) {

@@ -21,13 +21,13 @@ namespace dragiyski::node_ext {
         Shared<v8::Value> _getter, _setter, _query, _deleter, _enumerator, _definer, _descriptor;
     public:
         const v8::PropertyHandlerFlags &get_flags() const;
-        const v8::Local<v8::Value> &get_getter(v8::Isolate *isolate) const;
-        const v8::Local<v8::Value> &get_setter(v8::Isolate *isolate) const;
-        const v8::Local<v8::Value> &get_query(v8::Isolate *isolate) const;
-        const v8::Local<v8::Value> &get_deleter(v8::Isolate *isolate) const;
-        const v8::Local<v8::Value> &get_enumerator(v8::Isolate *isolate) const;
-        const v8::Local<v8::Value> &get_definer(v8::Isolate *isolate) const;
-        const v8::Local<v8::Value> &get_descriptor(v8::Isolate *isolate) const;
+        v8::Local<v8::Value> get_getter(v8::Isolate *isolate) const;
+        v8::Local<v8::Value> get_setter(v8::Isolate *isolate) const;
+        v8::Local<v8::Value> get_query(v8::Isolate *isolate) const;
+        v8::Local<v8::Value> get_deleter(v8::Isolate *isolate) const;
+        v8::Local<v8::Value> get_enumerator(v8::Isolate *isolate) const;
+        v8::Local<v8::Value> get_definer(v8::Isolate *isolate) const;
+        v8::Local<v8::Value> get_descriptor(v8::Isolate *isolate) const;
     protected:
         NamedPropertyHandlerConfiguration() = default;
         NamedPropertyHandlerConfiguration(const NamedPropertyHandlerConfiguration&) = delete;

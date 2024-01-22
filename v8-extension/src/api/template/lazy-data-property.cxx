@@ -62,29 +62,29 @@ namespace dragiyski::node_ext {
             JS_THROW_ERROR(TypeError, isolate, "argument 1 is not an object.");
         }
         auto options = info[0].As<v8::Object>();
+        auto implementation = std::unique_ptr<LazyDataProperty>(new LazyDataProperty());
 
-        v8::Local<v8::Function> getter;
         {
             auto name = StringTable::Get(isolate, "getter");
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
-            if (!value->IsFunction()) {
+            if (!(value->IsFunction() || value->IsObject() && value.As<v8::Object>()->IsCallable())) {
                 JS_THROW_ERROR(TypeError, isolate, "Required option \"getter\": not a function.");
             }
-            getter = value.As<v8::Function>();
+            implementation->_getter.Reset(isolate, value);
         }
 
-        auto attributes = JS_PROPERTY_ATTRIBUTE_DEFAULT;
+        implementation->_attributes = JS_PROPERTY_ATTRIBUTE_DEFAULT;
         {
             auto name = StringTable::Get(isolate, "attributes");
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "In option \"attributes\"");
                 value = value & static_cast<uint32_t>(JS_PROPERTY_ATTRIBUTE_ALL);
-                attributes = static_cast<v8::PropertyAttribute>(value);
+                implementation->_attributes = static_cast<v8::PropertyAttribute>(value);
             }
         }
 
-        auto getter_side_effect = v8::SideEffectType::kHasSideEffect;
+        implementation->_getter_side_effect = v8::SideEffectType::kHasSideEffect;
         {
             auto name = StringTable::Get(isolate, "getterSideEffect");
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
@@ -95,14 +95,14 @@ namespace dragiyski::node_ext {
                     value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffect) ||
                     value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffectToReceiver)
                 ) {
-                    getter_side_effect = static_cast<v8::SideEffectType>(value);
+                    implementation->_getter_side_effect = static_cast<v8::SideEffectType>(value);
                 } else {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"getterSideEffect\": Invalid side effect type.");
                 }
             }
         }
 
-        auto setter_side_effect = v8::SideEffectType::kHasSideEffect;
+        implementation->_setter_side_effect = v8::SideEffectType::kHasSideEffect;
         {
             auto name = StringTable::Get(isolate, "setterSideEffect");
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
@@ -113,19 +113,18 @@ namespace dragiyski::node_ext {
                     value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffect) ||
                     value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffectToReceiver)
                 ) {
-                    setter_side_effect = static_cast<v8::SideEffectType>(value);
+                    implementation->_setter_side_effect = static_cast<v8::SideEffectType>(value);
                 } else {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"setterSideEffect\": Invalid side effect type.");
                 }
             }
         }
 
-        auto implementation = new LazyDataProperty(isolate, getter, attributes, getter_side_effect, setter_side_effect);
-        implementation->set_interface(isolate, info.This());
+        implementation.release()->set_interface(isolate, info.This());
         info.GetReturnValue().Set(info.This());
     }
 
-    v8::Local<v8::Function> Template::LazyDataProperty::get_getter(v8::Isolate *isolate) const {
+    v8::Local<v8::Value> Template::LazyDataProperty::get_getter(v8::Isolate *isolate) const {
         return _getter.Get(isolate);
     }
 
@@ -141,18 +140,6 @@ namespace dragiyski::node_ext {
         return _setter_side_effect;
     }
 
-    Template::LazyDataProperty::LazyDataProperty(
-        v8::Isolate *isolate,
-        v8::Local<v8::Function> getter,
-        v8::PropertyAttribute attributes,
-        v8::SideEffectType getter_side_effect,
-        v8::SideEffectType setter_side_effect
-    ) :
-        _getter(isolate, getter),
-        _attributes(attributes),
-        _getter_side_effect(getter_side_effect),
-        _setter_side_effect(setter_side_effect) {}
-
     void Template::LazyDataProperty::getter_callback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info) {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
@@ -160,46 +147,51 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         auto data = info.Data().As<v8::Object>();
-        JS_EXPRESSION_RETURN(data_getter, data->Get(context, StringTable::Get(isolate, "getter")));
-        if (!data_getter->IsFunction()) {
+        JS_EXPRESSION_RETURN(js_descriptor, data->Get(context, StringTable::Get(isolate, "descriptor")));
+        if (!js_descriptor->IsObject()) {
             info.GetReturnValue().SetUndefined();
             return;
         }
-        JS_EXPRESSION_RETURN(data_context, data->Get(context, StringTable::Get(isolate, "context")));
-        JS_EXPRESSION_RETURN(data_template, data->Get(context, StringTable::Get(isolate, "template")));
-        JS_EXPRESSION_RETURN(data_descriptor, data->Get(context, StringTable::Get(isolate, "descriptor")));
+        auto descriptor = Object<LazyDataProperty>::get_implementation(isolate, js_descriptor);
+        if (descriptor == nullptr) {
+            info.GetReturnValue().SetUndefined();
+            return;
+        }
+
+        JS_EXPRESSION_RETURN(js_template, data->Get(context, StringTable::Get(isolate, "template")));
+        if (!js_template->IsObject()) {
+            info.GetReturnValue().SetUndefined();
+            return;
+        }
         auto data_strict = v8::Boolean::New(isolate, info.ShouldThrowOnError());
 
-        auto callee = data_getter.As<v8::Function>();
 
         v8::Local<v8::Object> call_data;
         {
+            // TODO: Obtain wrapper of v8::Context of the GetCurrentContext()
+            // Note: isolate->GetCurrentContext() might be different from the context of the getter call.
             v8::Local<v8::Name> names[] = {
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "name"),
-                StringTable::Get(isolate, "callee"),
                 StringTable::Get(isolate, "descriptor"),
                 StringTable::Get(isolate, "template"),
-                StringTable::Get(isolate, "shouldThrowOnError"),
-                StringTable::Get(isolate, "context"),
+                StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
                 info.This(),
                 info.Holder(),
                 property,
-                data_getter,
-                data_descriptor,
-                data_template,
-                data_strict,
-                data_context,
+                js_descriptor,
+                js_template,
+                data_strict
             };
             static_assert(sizeof(names) / sizeof(v8::Local<v8::Name>) == sizeof(values) / sizeof(v8::Local<v8::Value>));
             call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
-
+        auto getter = descriptor->get_getter(isolate);
         v8::Local<v8::Value> call_args[] = {call_data};
-        JS_EXPRESSION_RETURN(call_return, callee->Call(context, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(call_return, object_or_function_call(context, getter, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
         info.GetReturnValue().Set(call_return);
     }
 }

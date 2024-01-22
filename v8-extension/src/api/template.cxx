@@ -40,7 +40,7 @@ namespace dragiyski::node_ext {
         return per_isolate_template_symbol[isolate].Get(isolate);
     }
 
-    v8::Maybe<void> Template::SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::Template> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value) {
+    v8::Maybe<void> Template::SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::Template> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value) {
         static const constexpr auto __function_return_type__ = v8::Nothing<void>;
         auto isolate = context->GetIsolate();
         v8::HandleScope scope(isolate);
@@ -62,11 +62,23 @@ namespace dragiyski::node_ext {
             auto key_name = key.As<v8::Name>();
             auto setter = value_native_data_property->get_setter(isolate);
             JS_EXPRESSION_IGNORE(map->Set(context, key, value));
+            v8::Local<v8::Object> data;
+            {
+                v8::Local<v8::Name> names[] = {
+                    StringTable::Get(isolate, "descriptor"),
+                    StringTable::Get(isolate, "template")
+                };
+                v8::Local<v8::Value> values[] = {
+                    value,
+                    interface
+                };
+                data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+            }
             target->SetNativeDataProperty(
                 key_name,
                 NativeDataProperty::getter_callback,
                 !setter.IsEmpty() ? NativeDataProperty::setter_callback : nullptr,
-                value_object,
+                data,
                 value_native_data_property->get_attributes(),
                 value_native_data_property->get_access_control(),
                 value_native_data_property->get_getter_side_effect(),
@@ -85,10 +97,22 @@ namespace dragiyski::node_ext {
             }
             auto key_name = key.As<v8::Name>();
             JS_EXPRESSION_IGNORE(map->Set(context, key, value));
+            v8::Local<v8::Object> data;
+            {
+                v8::Local<v8::Name> names[] = {
+                    StringTable::Get(isolate, "descriptor"),
+                    StringTable::Get(isolate, "template")
+                };
+                v8::Local<v8::Value> values[] = {
+                    value,
+                    interface
+                };
+                data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+            }
             target->SetLazyDataProperty(
                 key_name,
                 LazyDataProperty::getter_callback,
-                value_object,
+                data,
                 value_lazy_data_property->get_attributes(),
                 value_lazy_data_property->get_getter_side_effect(),
                 value_lazy_data_property->get_setter_side_effect()

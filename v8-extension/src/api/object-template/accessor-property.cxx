@@ -25,6 +25,40 @@ namespace dragiyski::node_ext {
 
         class_template->InstanceTemplate()->SetInternalFieldCount(1);
 
+        auto signature = v8::Signature::New(isolate, class_template);
+        auto prototype_template = class_template->PrototypeTemplate();
+
+        {
+            auto name = StringTable::Get(isolate, "get");
+            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_getter, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
+            prototype_template->SetAccessorProperty(name, getter, {});
+        }
+        {
+            auto name = StringTable::Get(isolate, "set");
+            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_setter, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
+            prototype_template->SetAccessorProperty(name, getter, {});
+        }
+        {
+            auto name = StringTable::Get(isolate, "attributes");
+            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_attributes, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
+            prototype_template->SetAccessorProperty(name, getter, {});
+        }
+        {
+            auto name = StringTable::Get(isolate, "accessControl");
+            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_access_control, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
+            prototype_template->SetAccessorProperty(name, getter, {});
+        }
+        {
+            auto name = StringTable::Get(isolate, "getterSideEffects");
+            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_getter_side_effect, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
+            prototype_template->SetAccessorProperty(name, getter, {});
+        }
+        {
+            auto name = StringTable::Get(isolate, "setterSideEffects");
+            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_setter_side_effect, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
+            prototype_template->SetAccessorProperty(name, getter, {});
+        }
+
         per_isolate_template.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(isolate),
@@ -145,7 +179,7 @@ namespace dragiyski::node_ext {
             }
         }
 
-        target->set_interface(isolate, info.This());
+        target.release()->set_interface(isolate, info.This());
         info.GetReturnValue().Set(info.This());
     }
 
@@ -185,8 +219,8 @@ namespace dragiyski::node_ext {
         if V8_UNLIKELY(!template_interface->IsObject() || !descriptor_interface->IsObject()) {
             JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
         }
-        auto template_implementation = Object<ObjectTemplate>::get_implementation(isolate, template_interface);
-        auto descriptor_implementation = Object<AccessorProperty>::get_implementation(isolate, descriptor_interface);
+        auto template_implementation = Object<ObjectTemplate>::get_implementation(isolate, template_interface.As<v8::Object>());
+        auto descriptor_implementation = Object<AccessorProperty>::get_implementation(isolate, descriptor_interface.As<v8::Object>());
         if V8_UNLIKELY(template_implementation == nullptr || descriptor_implementation == nullptr) {
             JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
         }
@@ -232,8 +266,8 @@ namespace dragiyski::node_ext {
         if V8_UNLIKELY(!template_interface->IsObject() || !descriptor_interface->IsObject()) {
             JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
         }
-        auto template_implementation = Object<ObjectTemplate>::get_implementation(isolate, template_interface);
-        auto descriptor_implementation = Object<AccessorProperty>::get_implementation(isolate, descriptor_interface);
+        auto template_implementation = Object<ObjectTemplate>::get_implementation(isolate, template_interface.As<v8::Object>());
+        auto descriptor_implementation = Object<AccessorProperty>::get_implementation(isolate, descriptor_interface.As<v8::Object>());
         if V8_UNLIKELY(template_implementation == nullptr || descriptor_implementation == nullptr) {
             JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
         }
@@ -269,5 +303,99 @@ namespace dragiyski::node_ext {
         }
         v8::Local<v8::Value> call_args[] = {call_data};
         JS_EXPRESSION_IGNORE(object_or_function_call(context, setter, v8::Undefined(isolate), 1, call_args));
+    }
+
+    void ObjectTemplate::AccessorProperty::prototype_get_getter(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
+
+        auto value = implementation->_getter.Get(isolate);
+        if V8_UNLIKELY(value.IsEmpty()) {
+            info.GetReturnValue().SetUndefined();
+        } else {
+            info.GetReturnValue().Set(value);
+        }
+    }
+
+    void ObjectTemplate::AccessorProperty::prototype_get_setter(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
+
+        auto value = implementation->_setter.Get(isolate);
+        if V8_UNLIKELY(value.IsEmpty()) {
+            info.GetReturnValue().SetUndefined();
+        } else {
+            info.GetReturnValue().Set(value);
+        }
+    }
+
+    void ObjectTemplate::AccessorProperty::prototype_get_attributes(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
+
+        info.GetReturnValue().Set(static_cast<uint32_t>(implementation->_attributes));
+    }
+
+    void ObjectTemplate::AccessorProperty::prototype_get_access_control(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
+
+        info.GetReturnValue().Set(static_cast<uint32_t>(implementation->_access_control));
+    }
+
+    void ObjectTemplate::AccessorProperty::prototype_get_getter_side_effect(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
+
+        info.GetReturnValue().Set(static_cast<uint32_t>(implementation->_getter_side_effect));
+    }
+
+    void ObjectTemplate::AccessorProperty::prototype_get_setter_side_effect(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
+
+        info.GetReturnValue().Set(static_cast<uint32_t>(implementation->_setter_side_effect));
     }
 }

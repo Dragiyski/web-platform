@@ -164,31 +164,31 @@ namespace dragiyski::node_ext {
         return _flags;
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_getter(v8::Isolate *isolate) const {
+    v8::Local<v8::Value> ObjectTemplate::IndexedPropertyHandlerConfiguration::get_getter(v8::Isolate *isolate) const {
         return _getter.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_setter(v8::Isolate *isolate) const {
+    v8::Local<v8::Value> ObjectTemplate::IndexedPropertyHandlerConfiguration::get_setter(v8::Isolate *isolate) const {
         return _setter.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_query(v8::Isolate *isolate) const {
+    v8::Local<v8::Value> ObjectTemplate::IndexedPropertyHandlerConfiguration::get_query(v8::Isolate *isolate) const {
         return _query.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_deleter(v8::Isolate *isolate) const {
+    v8::Local<v8::Value> ObjectTemplate::IndexedPropertyHandlerConfiguration::get_deleter(v8::Isolate *isolate) const {
         return _deleter.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_enumerator(v8::Isolate *isolate) const {
+    v8::Local<v8::Value> ObjectTemplate::IndexedPropertyHandlerConfiguration::get_enumerator(v8::Isolate *isolate) const {
         return _enumerator.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_definer(v8::Isolate *isolate) const {
+    v8::Local<v8::Value> ObjectTemplate::IndexedPropertyHandlerConfiguration::get_definer(v8::Isolate *isolate) const {
         return _definer.Get(isolate);
     }
 
-    const v8::Local<v8::Value> &ObjectTemplate::IndexedPropertyHandlerConfiguration::get_descriptor(v8::Isolate *isolate) const {
+    v8::Local<v8::Value> ObjectTemplate::IndexedPropertyHandlerConfiguration::get_descriptor(v8::Isolate *isolate) const {
         return _descriptor.Get(isolate);
     }
 }
