@@ -60,99 +60,97 @@ namespace dragiyski::node_ext {
             JS_THROW_ERROR(TypeError, isolate, "argument 1 is not an object.");
         }
         auto options = info[0].As<v8::Object>();
+        auto implementation = std::unique_ptr<NativeDataProperty>(new NativeDataProperty());
 
-        v8::Local<v8::Function> getter;
         {
             auto name = StringTable::Get(isolate, "getter");
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
-            if (!value->IsFunction()) {
+            if V8_UNLIKELY(!JS_IS_CALLABLE(value)) {
                 JS_THROW_ERROR(TypeError, isolate, "Required option \"getter\": not a function.");
             }
-            getter = value.As<v8::Function>();
+            implementation->_getter.Reset(isolate, value);
         }
 
-        v8::Local<v8::Function> setter;
         {
             auto name = StringTable::Get(isolate, "setter");
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
             if (!value->IsNullOrUndefined()) {
-                if (!value->IsFunction()) {
+                if V8_UNLIKELY(!JS_IS_CALLABLE(value)) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"setter\": not a function.");
                 }
-                setter = value.As<v8::Function>();
+                implementation->_setter.Reset(isolate, value);
             }
         }
 
-        auto attributes = JS_PROPERTY_ATTRIBUTE_DEFAULT;
+        implementation->_attributes = JS_PROPERTY_ATTRIBUTE_DEFAULT;
         {
             auto name = StringTable::Get(isolate, "attributes");
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "In option \"attributes\"");
                 value = value & static_cast<uint32_t>(JS_PROPERTY_ATTRIBUTE_ALL);
-                attributes = static_cast<v8::PropertyAttribute>(value);
+                implementation->_attributes = static_cast<v8::PropertyAttribute>(value);
             }
         }
 
-        auto access_control = v8::AccessControl::DEFAULT;
+        implementation->_access_control = v8::AccessControl::DEFAULT;
         {
             auto name = StringTable::Get(isolate, "accessControl");
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "In option \"accessControl\"");
-                if (value != v8::AccessControl::DEFAULT && value != v8::AccessControl::ALL_CAN_READ && value != v8::AccessControl::ALL_CAN_WRITE) {
+                if V8_UNLIKELY(value != v8::AccessControl::DEFAULT && value != v8::AccessControl::ALL_CAN_READ && value != v8::AccessControl::ALL_CAN_WRITE) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"accessControl\": not a valid access control value.");
                 }
-                access_control = static_cast<v8::AccessControl>(value);
+                implementation->_access_control = static_cast<v8::AccessControl>(value);
             }
         }
 
-        auto getter_side_effect = v8::SideEffectType::kHasSideEffect;
+        implementation->_getter_side_effect = v8::SideEffectType::kHasSideEffect;
         {
             auto name = StringTable::Get(isolate, "getterSideEffect");
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "Option \"getterSideEffect\"");
-                if (
+                if V8_LIKELY(
                     value == static_cast<int32_t>(v8::SideEffectType::kHasNoSideEffect) ||
                     value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffect) ||
                     value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffectToReceiver)
                 ) {
-                    getter_side_effect = static_cast<v8::SideEffectType>(value);
+                    implementation->_getter_side_effect = static_cast<v8::SideEffectType>(value);
                 } else {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"getterSideEffect\": Invalid side effect type.");
                 }
             }
         }
 
-        auto setter_side_effect = v8::SideEffectType::kHasSideEffect;
+        implementation->_setter_side_effect = v8::SideEffectType::kHasSideEffect;
         {
             auto name = StringTable::Get(isolate, "setterSideEffect");
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "Option \"setterSideEffect\"");
-                if (
+                if V8_LIKELY(
                     value == static_cast<int32_t>(v8::SideEffectType::kHasNoSideEffect) ||
                     value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffect) ||
                     value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffectToReceiver)
                 ) {
-                    setter_side_effect = static_cast<v8::SideEffectType>(value);
+                    implementation->_setter_side_effect = static_cast<v8::SideEffectType>(value);
                 } else {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"setterSideEffect\": Invalid side effect type.");
                 }
             }
         }
 
-        auto implementation = new NativeDataProperty(isolate, getter, setter, attributes, access_control, getter_side_effect, setter_side_effect);
-        implementation->set_interface(isolate, info.This());
+        implementation.release()->set_interface(isolate, info.This());
         info.GetReturnValue().Set(info.This());
     }
 
-    v8::Local<v8::Function> Template::NativeDataProperty::get_getter(v8::Isolate *isolate) const {
+    v8::Local<v8::Value> Template::NativeDataProperty::get_getter(v8::Isolate *isolate) const {
         return _getter.Get(isolate);
     }
 
-    v8::Local<v8::Function> Template::NativeDataProperty::get_setter(v8::Isolate *isolate) const {
+    v8::Local<v8::Value> Template::NativeDataProperty::get_setter(v8::Isolate *isolate) const {
         return _setter.Get(isolate);
     }
 
@@ -172,22 +170,6 @@ namespace dragiyski::node_ext {
         return _setter_side_effect;
     }
 
-    Template::NativeDataProperty::NativeDataProperty(
-        v8::Isolate *isolate,
-        v8::Local<v8::Function> getter,
-        v8::Local<v8::Function> setter,
-        v8::PropertyAttribute attributes,
-        v8::AccessControl access_control,
-        v8::SideEffectType getter_side_effect,
-        v8::SideEffectType setter_side_effect
-    ) :
-        _getter(isolate, getter),
-        _setter(isolate, setter),
-        _attributes(attributes),
-        _access_control(access_control),
-        _getter_side_effect(getter_side_effect),
-        _setter_side_effect(setter_side_effect) {}
-
     void Template::NativeDataProperty::getter_callback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info) {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
@@ -195,46 +177,50 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         auto data = info.Data().As<v8::Object>();
-        JS_EXPRESSION_RETURN(data_getter, data->Get(context, StringTable::Get(isolate, "getter")));
-        if (!data_getter->IsFunction()) {
+        JS_EXPRESSION_RETURN(js_descriptor, data->Get(context, StringTable::Get(isolate, "descriptor")));
+        if V8_UNLIKELY(!js_descriptor->IsObject()) {
             info.GetReturnValue().SetUndefined();
             return;
         }
-        JS_EXPRESSION_RETURN(data_context, data->Get(context, StringTable::Get(isolate, "context")));
-        JS_EXPRESSION_RETURN(data_template, data->Get(context, StringTable::Get(isolate, "template")));
-        JS_EXPRESSION_RETURN(data_descriptor, data->Get(context, StringTable::Get(isolate, "descriptor")));
-        auto data_strict = v8::Boolean::New(isolate, info.ShouldThrowOnError());
+        auto descriptor = Object<NativeDataProperty>::get_implementation(isolate, js_descriptor.As<v8::Object>());
+        if V8_UNLIKELY(descriptor == nullptr) {
+            info.GetReturnValue().SetUndefined();
+            return;
+        }
 
-        auto callee = data_getter.As<v8::Function>();
+        JS_EXPRESSION_RETURN(js_template, data->Get(context, StringTable::Get(isolate, "template")));
+        if V8_UNLIKELY(!js_template->IsObject()) {
+            info.GetReturnValue().SetUndefined();
+            return;
+        }
+        auto data_strict = v8::Boolean::New(isolate, info.ShouldThrowOnError());
 
         v8::Local<v8::Object> call_data;
         {
+            // TODO: Obtain wrapper of v8::Context of the GetCurrentContext()
+            // Note: isolate->GetCurrentContext() might be different from the context of the getter call.
             v8::Local<v8::Name> names[] = {
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "name"),
-                StringTable::Get(isolate, "callee"),
                 StringTable::Get(isolate, "descriptor"),
                 StringTable::Get(isolate, "template"),
-                StringTable::Get(isolate, "shouldThrowOnError"),
-                StringTable::Get(isolate, "context"),
+                StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
                 info.This(),
                 info.Holder(),
                 property,
-                data_getter,
-                data_descriptor,
-                data_template,
-                data_strict,
-                data_context,
+                js_descriptor,
+                js_template,
+                data_strict
             };
             static_assert(sizeof(names) / sizeof(v8::Local<v8::Name>) == sizeof(values) / sizeof(v8::Local<v8::Value>));
             call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
-
+        auto getter = descriptor->get_getter(isolate);
         v8::Local<v8::Value> call_args[] = {call_data};
-        JS_EXPRESSION_RETURN(call_return, callee->Call(context, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(call_return, object_or_function_call(context, getter, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
         info.GetReturnValue().Set(call_return);
     }
 
@@ -245,46 +231,49 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         auto data = info.Data().As<v8::Object>();
-        JS_EXPRESSION_RETURN(data_setter, data->Get(context, StringTable::Get(isolate, "setter")));
-        if (!data_setter->IsFunction()) {
+        JS_EXPRESSION_RETURN(js_descriptor, data->Get(context, StringTable::Get(isolate, "descriptor")));
+        if V8_UNLIKELY(!js_descriptor->IsObject()) {
             return;
         }
-        JS_EXPRESSION_RETURN(data_context, data->Get(context, StringTable::Get(isolate, "context")));
-        JS_EXPRESSION_RETURN(data_template, data->Get(context, StringTable::Get(isolate, "template")));
-        JS_EXPRESSION_RETURN(data_descriptor, data->Get(context, StringTable::Get(isolate, "descriptor")));
-        auto data_strict = v8::Boolean::New(isolate, info.ShouldThrowOnError());
+        auto descriptor = Object<NativeDataProperty>::get_implementation(isolate, js_descriptor.As<v8::Object>());
+        if V8_UNLIKELY(descriptor == nullptr) {
+            return;
+        }
 
-        auto callee = data_setter.As<v8::Function>();
+        JS_EXPRESSION_RETURN(js_template, data->Get(context, StringTable::Get(isolate, "template")));
+        if V8_UNLIKELY(!js_template->IsObject()) {
+            return;
+        }
+        auto data_strict = v8::Boolean::New(isolate, info.ShouldThrowOnError());
 
         v8::Local<v8::Object> call_data;
         {
+            // TODO: Obtain wrapper of v8::Context of the GetCurrentContext()
+            // Note: isolate->GetCurrentContext() might be different from the context of the getter call.
             v8::Local<v8::Name> names[] = {
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "name"),
                 StringTable::Get(isolate, "value"),
-                StringTable::Get(isolate, "callee"),
                 StringTable::Get(isolate, "descriptor"),
                 StringTable::Get(isolate, "template"),
-                StringTable::Get(isolate, "shouldThrowOnError"),
-                StringTable::Get(isolate, "context"),
+                StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
                 info.This(),
                 info.Holder(),
                 property,
                 value,
-                data_setter,
-                data_descriptor,
-                data_template,
-                data_strict,
-                data_context,
+                js_descriptor,
+                js_template,
+                data_strict
             };
             static_assert(sizeof(names) / sizeof(v8::Local<v8::Name>) == sizeof(values) / sizeof(v8::Local<v8::Value>));
             call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
-
+        auto setter = descriptor->get_setter(isolate);
         v8::Local<v8::Value> call_args[] = {call_data};
-        JS_EXPRESSION_IGNORE(callee->Call(context, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(call_return, object_or_function_call(context, setter, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        info.GetReturnValue().Set(call_return);
     }
 }

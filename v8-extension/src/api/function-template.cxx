@@ -179,7 +179,6 @@ namespace dragiyski::node_ext {
         v8::HandleScope scope(isolate);
 
         auto target = std::unique_ptr<FunctionTemplate>(new FunctionTemplate());
-        target->set_interface(isolate, interface);
 
         {
             v8::Local<v8::Value> callee;
@@ -328,7 +327,7 @@ namespace dragiyski::node_ext {
         if (!receiver_template.IsEmpty()) {
             signature = v8::Signature::New(isolate, receiver_template);
         }
-        auto function_template = v8::FunctionTemplate::New(isolate, callback, target->get_interface(isolate), signature, target->_length, target->_allow_construct ? v8::ConstructorBehavior::kAllow : v8::ConstructorBehavior::kThrow, target->_side_effect_type);
+        auto function_template = v8::FunctionTemplate::New(isolate, callback, interface, signature, target->_length, target->_allow_construct ? v8::ConstructorBehavior::kAllow : v8::ConstructorBehavior::kThrow, target->_side_effect_type);
         {
             auto name = StringTable::Get(isolate, "properties");
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
@@ -379,6 +378,9 @@ namespace dragiyski::node_ext {
                 target->_prototype_template.Reset(isolate, interface);
             }
         }
+        auto implementation = target.release();
+        implementation->set_interface(isolate, interface);
+        return v8::Just(implementation);
     }
 
     v8::Maybe<void> FunctionTemplate::SetupProperty(v8::Local<v8::Context> context, v8::Local<v8::Object> interface, v8::Local<v8::FunctionTemplate> target, v8::Local<v8::Map> map, v8::Local<v8::Value> key, v8::Local<v8::Value> value) {

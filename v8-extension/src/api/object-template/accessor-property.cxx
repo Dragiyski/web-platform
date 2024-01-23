@@ -101,7 +101,7 @@ namespace dragiyski::node_ext {
         {
             auto name = StringTable::Get(isolate, "getter");
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
-            if V8_LIKELY (value->IsFunction() || value->IsObject() && value.As<v8::Object>()->IsCallable()) {
+            if V8_LIKELY (JS_IS_CALLABLE(value)) {
                 target->_getter.Reset(isolate, value);
             } else {
                 JS_THROW_ERROR(TypeError, isolate, "Required option \"getter\": not a function.");
@@ -111,8 +111,8 @@ namespace dragiyski::node_ext {
             auto name = StringTable::Get(isolate, "setter");
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
             if (!value->IsNullOrUndefined()) {
-                if V8_LIKELY (value->IsFunction() || value->IsObject() && value.As<v8::Object>()->IsCallable()) {
-                    target->_getter.Reset(isolate, value);
+                if V8_LIKELY (JS_IS_CALLABLE(value)) {
+                    target->_setter.Reset(isolate, value);
                 } else {
                     JS_THROW_ERROR(TypeError, isolate, "Required option \"setter\": not a function.");
                 }
@@ -136,7 +136,7 @@ namespace dragiyski::node_ext {
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "In option \"accessControl\"");
-                if (value != v8::AccessControl::DEFAULT && value != v8::AccessControl::ALL_CAN_READ && value != v8::AccessControl::ALL_CAN_WRITE) {
+                if V8_UNLIKELY(value != v8::AccessControl::DEFAULT && value != v8::AccessControl::ALL_CAN_READ && value != v8::AccessControl::ALL_CAN_WRITE) {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"accessControl\": not a valid access control value.");
                 }
                 target->_access_control = static_cast<v8::AccessControl>(value);
@@ -214,43 +214,50 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         auto data = info.Data().As<v8::Object>();
-        JS_EXPRESSION_RETURN(template_interface, data->Get(context, StringTable::Get(isolate, "descriptor")));
-        JS_EXPRESSION_RETURN(descriptor_interface, data->Get(context, StringTable::Get(isolate, "template")));
-        if V8_UNLIKELY(!template_interface->IsObject() || !descriptor_interface->IsObject()) {
-            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        JS_EXPRESSION_RETURN(js_descriptor, data->Get(context, StringTable::Get(isolate, "descriptor")));
+        if V8_UNLIKELY(!js_descriptor->IsObject()) {
+            info.GetReturnValue().SetUndefined();
+            return;
         }
-        auto template_implementation = Object<ObjectTemplate>::get_implementation(isolate, template_interface.As<v8::Object>());
-        auto descriptor_implementation = Object<AccessorProperty>::get_implementation(isolate, descriptor_interface.As<v8::Object>());
-        if V8_UNLIKELY(template_implementation == nullptr || descriptor_implementation == nullptr) {
-            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        auto descriptor = Object<AccessorProperty>::get_implementation(isolate, js_descriptor.As<v8::Object>());
+        if V8_UNLIKELY(descriptor == nullptr) {
+            info.GetReturnValue().SetUndefined();
+            return;
         }
-        auto getter = descriptor_implementation->get_getter(isolate);
-        if (!(getter->IsFunction() || getter->IsObject() && getter.As<v8::Object>()->IsCallable())) {
-            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+
+        JS_EXPRESSION_RETURN(js_template, data->Get(context, StringTable::Get(isolate, "template")));
+        if V8_UNLIKELY(!js_template->IsObject()) {
+            info.GetReturnValue().SetUndefined();
+            return;
         }
-        
+        auto data_strict = v8::Boolean::New(isolate, info.ShouldThrowOnError());
+
         v8::Local<v8::Object> call_data;
         {
+            // TODO: Obtain wrapper of v8::Context of the GetCurrentContext()
+            // Note: isolate->GetCurrentContext() might be different from the context of the getter call.
             v8::Local<v8::Name> names[] = {
                 StringTable::Get(isolate, "this"),
-                StringTable::Get(isolate, "name"),
                 StringTable::Get(isolate, "holder"),
-                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "name"),
                 StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
                 info.This(),
-                property,
                 info.Holder(),
-                template_interface,
-                descriptor_interface,
-                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+                property,
+                js_descriptor,
+                js_template,
+                data_strict
             };
+            static_assert(sizeof(names) / sizeof(v8::Local<v8::Name>) == sizeof(values) / sizeof(v8::Local<v8::Value>));
             call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
+        auto getter = descriptor->get_getter(isolate);
         v8::Local<v8::Value> call_args[] = {call_data};
-        JS_EXPRESSION_RETURN(call_return, object_or_function_call(context, getter, v8::Undefined(isolate), 1, call_args));
+        JS_EXPRESSION_RETURN(call_return, object_or_function_call(context, getter, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
         info.GetReturnValue().Set(call_return);
     }
 
@@ -261,55 +268,56 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         auto data = info.Data().As<v8::Object>();
-        JS_EXPRESSION_RETURN(template_interface, data->Get(context, StringTable::Get(isolate, "descriptor")));
-        JS_EXPRESSION_RETURN(descriptor_interface, data->Get(context, StringTable::Get(isolate, "template")));
-        if V8_UNLIKELY(!template_interface->IsObject() || !descriptor_interface->IsObject()) {
-            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        JS_EXPRESSION_RETURN(js_descriptor, data->Get(context, StringTable::Get(isolate, "descriptor")));
+        if V8_UNLIKELY(!js_descriptor->IsObject()) {
+            return;
         }
-        auto template_implementation = Object<ObjectTemplate>::get_implementation(isolate, template_interface.As<v8::Object>());
-        auto descriptor_implementation = Object<AccessorProperty>::get_implementation(isolate, descriptor_interface.As<v8::Object>());
-        if V8_UNLIKELY(template_implementation == nullptr || descriptor_implementation == nullptr) {
-            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        auto descriptor = Object<AccessorProperty>::get_implementation(isolate, js_descriptor.As<v8::Object>());
+        if V8_UNLIKELY(descriptor == nullptr) {
+            return;
         }
-        auto setter = descriptor_implementation->get_getter(isolate);
-        if (!(setter->IsFunction() || setter->IsObject() && setter.As<v8::Object>()->IsCallable())) {
-            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+
+        JS_EXPRESSION_RETURN(js_template, data->Get(context, StringTable::Get(isolate, "template")));
+        if V8_UNLIKELY(!js_template->IsObject()) {
+            return;
         }
-        
-        // TODO: Obtain an object wrapping the current v8::Context and add it here
-        // Note: Each v8::Context has exactly one global(), we can use v8::Private on that global to reference an object wrapping the context.
-        // Thus having only one JavaScript object for each v8::Context
+        auto data_strict = v8::Boolean::New(isolate, info.ShouldThrowOnError());
+
         v8::Local<v8::Object> call_data;
         {
+            // TODO: Obtain wrapper of v8::Context of the GetCurrentContext()
+            // Note: isolate->GetCurrentContext() might be different from the context of the getter call.
             v8::Local<v8::Name> names[] = {
                 StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "name"),
                 StringTable::Get(isolate, "value"),
-                StringTable::Get(isolate, "holder"),
-                StringTable::Get(isolate, "template"),
                 StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
                 info.This(),
+                info.Holder(),
                 property,
                 value,
-                info.Holder(),
-                template_interface,
-                descriptor_interface,
-                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+                js_descriptor,
+                js_template,
+                data_strict
             };
+            static_assert(sizeof(names) / sizeof(v8::Local<v8::Name>) == sizeof(values) / sizeof(v8::Local<v8::Value>));
             call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
+        auto setter = descriptor->get_getter(isolate);
         v8::Local<v8::Value> call_args[] = {call_data};
-        JS_EXPRESSION_IGNORE(object_or_function_call(context, setter, v8::Undefined(isolate), 1, call_args));
+        JS_EXPRESSION_RETURN(call_return, object_or_function_call(context, setter, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        info.GetReturnValue().Set(call_return);
     }
 
     void ObjectTemplate::AccessorProperty::prototype_get_getter(const v8::FunctionCallbackInfo<v8::Value> &info) {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
-        auto context = isolate->GetCurrentContext();
 
         auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
         if V8_UNLIKELY(implementation == nullptr) {
@@ -328,7 +336,6 @@ namespace dragiyski::node_ext {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
-        auto context = isolate->GetCurrentContext();
 
         auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
         if V8_UNLIKELY(implementation == nullptr) {
@@ -347,7 +354,6 @@ namespace dragiyski::node_ext {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
-        auto context = isolate->GetCurrentContext();
 
         auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
         if V8_UNLIKELY(implementation == nullptr) {
@@ -375,7 +381,6 @@ namespace dragiyski::node_ext {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
-        auto context = isolate->GetCurrentContext();
 
         auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
         if V8_UNLIKELY(implementation == nullptr) {
@@ -389,7 +394,6 @@ namespace dragiyski::node_ext {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
-        auto context = isolate->GetCurrentContext();
 
         auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
         if V8_UNLIKELY(implementation == nullptr) {

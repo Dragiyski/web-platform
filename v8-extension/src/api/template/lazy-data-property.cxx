@@ -17,13 +17,34 @@ namespace dragiyski::node_ext {
         auto class_name = StringTable::Get(isolate, "LazyDataProperty");
         auto class_template = v8::FunctionTemplate::New(isolate, constructor);
         class_template->SetClassName(class_name);
-        auto prototype_template = class_template->PrototypeTemplate();
-        auto signature = v8::Signature::New(isolate, class_template);
 
         // Makes prototype *property* (not object) immutable similar to class X {}; syntax;
         class_template->ReadOnlyPrototype();
-
         class_template->InstanceTemplate()->SetInternalFieldCount(1);
+
+        auto signature = v8::Signature::New(isolate, class_template);
+        auto prototype_template = class_template->PrototypeTemplate();
+
+        {
+            auto name = StringTable::Get(isolate, "get");
+            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_getter, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
+            prototype_template->SetAccessorProperty(name, getter, {});
+        }
+        {
+            auto name = StringTable::Get(isolate, "attributes");
+            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_attributes, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
+            prototype_template->SetAccessorProperty(name, getter, {});
+        }
+        {
+            auto name = StringTable::Get(isolate, "getterSideEffects");
+            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_getter_side_effect, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
+            prototype_template->SetAccessorProperty(name, getter, {});
+        }
+        {
+            auto name = StringTable::Get(isolate, "setterSideEffects");
+            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_setter_side_effect, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
+            prototype_template->SetAccessorProperty(name, getter, {});
+        }
 
         per_isolate_template.emplace(
             std::piecewise_construct,
@@ -67,7 +88,7 @@ namespace dragiyski::node_ext {
         {
             auto name = StringTable::Get(isolate, "getter");
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
-            if (!(value->IsFunction() || value->IsObject() && value.As<v8::Object>()->IsCallable())) {
+            if V8_UNLIKELY(!JS_IS_CALLABLE(value)) {
                 JS_THROW_ERROR(TypeError, isolate, "Required option \"getter\": not a function.");
             }
             implementation->_getter.Reset(isolate, value);
@@ -90,7 +111,7 @@ namespace dragiyski::node_ext {
             JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
             if (!js_value->IsNullOrUndefined()) {
                 JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "Option \"getterSideEffect\"");
-                if (
+                if V8_LIKELY(
                     value == static_cast<int32_t>(v8::SideEffectType::kHasNoSideEffect) ||
                     value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffect) ||
                     value == static_cast<int32_t>(v8::SideEffectType::kHasSideEffectToReceiver)
@@ -148,23 +169,22 @@ namespace dragiyski::node_ext {
 
         auto data = info.Data().As<v8::Object>();
         JS_EXPRESSION_RETURN(js_descriptor, data->Get(context, StringTable::Get(isolate, "descriptor")));
-        if (!js_descriptor->IsObject()) {
+        if V8_UNLIKELY(!js_descriptor->IsObject()) {
             info.GetReturnValue().SetUndefined();
             return;
         }
-        auto descriptor = Object<LazyDataProperty>::get_implementation(isolate, js_descriptor);
-        if (descriptor == nullptr) {
+        auto descriptor = Object<LazyDataProperty>::get_implementation(isolate, js_descriptor.As<v8::Object>());
+        if V8_UNLIKELY(descriptor == nullptr) {
             info.GetReturnValue().SetUndefined();
             return;
         }
 
         JS_EXPRESSION_RETURN(js_template, data->Get(context, StringTable::Get(isolate, "template")));
-        if (!js_template->IsObject()) {
+        if V8_UNLIKELY(!js_template->IsObject()) {
             info.GetReturnValue().SetUndefined();
             return;
         }
         auto data_strict = v8::Boolean::New(isolate, info.ShouldThrowOnError());
-
 
         v8::Local<v8::Object> call_data;
         {
@@ -193,5 +213,62 @@ namespace dragiyski::node_ext {
         v8::Local<v8::Value> call_args[] = {call_data};
         JS_EXPRESSION_RETURN(call_return, object_or_function_call(context, getter, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
         info.GetReturnValue().Set(call_return);
+    }
+
+    void Template::LazyDataProperty::prototype_get_getter(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+
+        auto implementation = Object<LazyDataProperty>::get_own_implementation(isolate, info.Holder());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
+
+        auto value = implementation->_getter.Get(isolate);
+        if V8_UNLIKELY(value.IsEmpty()) {
+            info.GetReturnValue().SetUndefined();
+        } else {
+            info.GetReturnValue().Set(value);
+        }
+    }
+
+    void Template::LazyDataProperty::prototype_get_attributes(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+
+        auto implementation = Object<LazyDataProperty>::get_own_implementation(isolate, info.Holder());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
+
+        info.GetReturnValue().Set(static_cast<uint32_t>(implementation->_attributes));
+    }
+
+    void Template::LazyDataProperty::prototype_get_getter_side_effect(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+
+        auto implementation = Object<LazyDataProperty>::get_own_implementation(isolate, info.Holder());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
+
+        info.GetReturnValue().Set(static_cast<uint32_t>(implementation->_getter_side_effect));
+    }
+
+    void Template::LazyDataProperty::prototype_get_setter_side_effect(const v8::FunctionCallbackInfo<v8::Value> &info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+
+        auto implementation = Object<LazyDataProperty>::get_own_implementation(isolate, info.Holder());
+        if V8_UNLIKELY(implementation == nullptr) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
+        }
+
+        info.GetReturnValue().Set(static_cast<uint32_t>(implementation->_setter_side_effect));
     }
 }

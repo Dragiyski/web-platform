@@ -20,28 +20,20 @@ namespace dragiyski::node_ext {
         static void getter_callback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info);
         static void setter_callback(v8::Local<v8::Name> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
     private:
-        Shared<v8::Function> _getter;
-        Shared<v8::Function> _setter;
+        Shared<v8::Value> _getter;
+        Shared<v8::Value> _setter;
         v8::PropertyAttribute _attributes;
         v8::AccessControl _access_control;
         v8::SideEffectType _getter_side_effect, _setter_side_effect;
     public:
-        v8::Local<v8::Function> get_getter(v8::Isolate* isolate) const;
-        v8::Local<v8::Function> get_setter(v8::Isolate* isolate) const;
+        v8::Local<v8::Value> get_getter(v8::Isolate* isolate) const;
+        v8::Local<v8::Value> get_setter(v8::Isolate* isolate) const;
         v8::PropertyAttribute get_attributes() const;
         v8::AccessControl get_access_control() const;
         v8::SideEffectType get_getter_side_effect() const;
         v8::SideEffectType get_setter_side_effect() const;
     protected:
-        NativeDataProperty(
-            v8::Isolate *isolate,
-            v8::Local<v8::Function> getter,
-            v8::Local<v8::Function> setter,
-            v8::PropertyAttribute attributes,
-            v8::AccessControl access_control,
-            v8::SideEffectType getter_side_effect,
-            v8::SideEffectType setter_side_effect
-        );
+        NativeDataProperty() = default;
         NativeDataProperty(const NativeDataProperty&) = delete;
         NativeDataProperty(NativeDataProperty&&) = delete;
     public:

@@ -18,6 +18,10 @@ namespace dragiyski::node_ext {
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
     public:
         static void getter_callback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info);
+        static void prototype_get_getter(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void prototype_get_attributes(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void prototype_get_getter_side_effect(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void prototype_get_setter_side_effect(const v8::FunctionCallbackInfo<v8::Value>& info);
     private:
         Shared<v8::Value> _getter;
         v8::PropertyAttribute _attributes;

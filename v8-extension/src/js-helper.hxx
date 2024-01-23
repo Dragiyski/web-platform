@@ -736,6 +736,8 @@ namespace js {
 #define JS_PROPERTY_ATTRIBUTE_DEFAULT (static_cast<v8::PropertyAttribute>(v8::PropertyAttribute::None))
 #define JS_PROPERTY_ATTRIBUTE_ALL (JS_PROPERTY_ATTRIBUTE_STATIC)
 
+#define JS_IS_CALLABLE(value) (value->IsFunction() || (value->IsObject() && value.As<v8::Object>()->IsCallable()))
+
     struct Source : public v8::ScriptCompiler::Source {
         template<typename ... Args>
         Source(Args &&... args) : v8::ScriptCompiler::Source(std::forward<Args>(args)...) {}
