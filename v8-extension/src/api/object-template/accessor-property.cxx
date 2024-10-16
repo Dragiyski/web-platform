@@ -44,11 +44,6 @@ namespace dragiyski::node_ext {
             prototype_template->SetAccessorProperty(name, getter, {});
         }
         {
-            auto name = StringTable::Get(isolate, "accessControl");
-            auto getter = v8::FunctionTemplate::New(isolate, prototype_get_access_control, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
-            prototype_template->SetAccessorProperty(name, getter, {});
-        }
-        {
             auto name = StringTable::Get(isolate, "getterSideEffects");
             auto getter = v8::FunctionTemplate::New(isolate, prototype_get_getter_side_effect, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
             prototype_template->SetAccessorProperty(name, getter, {});
@@ -130,19 +125,6 @@ namespace dragiyski::node_ext {
             }
         }
 
-        target->_access_control = v8::AccessControl::DEFAULT;
-        {
-            auto name = StringTable::Get(isolate, "accessControl");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "In option \"accessControl\"");
-                if V8_UNLIKELY(value != v8::AccessControl::DEFAULT && value != v8::AccessControl::ALL_CAN_READ && value != v8::AccessControl::ALL_CAN_WRITE) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"accessControl\": not a valid access control value.");
-                }
-                target->_access_control = static_cast<v8::AccessControl>(value);
-            }
-        }
-
         target->_getter_side_effect = v8::SideEffectType::kHasSideEffect;
         {
             auto name = StringTable::Get(isolate, "getterSideEffect");
@@ -193,10 +175,6 @@ namespace dragiyski::node_ext {
 
     v8::PropertyAttribute ObjectTemplate::AccessorProperty::get_attributes() const {
         return _attributes;
-    }
-
-    v8::AccessControl ObjectTemplate::AccessorProperty::get_access_control() const {
-        return _access_control;
     }
 
     v8::SideEffectType ObjectTemplate::AccessorProperty::get_getter_side_effect() const {
@@ -361,20 +339,6 @@ namespace dragiyski::node_ext {
         }
 
         info.GetReturnValue().Set(static_cast<uint32_t>(implementation->_attributes));
-    }
-
-    void ObjectTemplate::AccessorProperty::prototype_get_access_control(const v8::FunctionCallbackInfo<v8::Value> &info) {
-        using __function_return_type__ = void;
-        auto isolate = info.GetIsolate();
-        v8::HandleScope scope(isolate);
-        auto context = isolate->GetCurrentContext();
-
-        auto implementation = Object<AccessorProperty>::get_own_implementation(isolate, info.Holder());
-        if V8_UNLIKELY(implementation == nullptr) {
-            JS_THROW_ERROR(TypeError, isolate, "Illegal invocation");
-        }
-
-        info.GetReturnValue().Set(static_cast<uint32_t>(implementation->_access_control));
     }
 
     void ObjectTemplate::AccessorProperty::prototype_get_getter_side_effect(const v8::FunctionCallbackInfo<v8::Value> &info) {

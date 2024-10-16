@@ -93,19 +93,6 @@ namespace dragiyski::node_ext {
             }
         }
 
-        implementation->_access_control = v8::AccessControl::DEFAULT;
-        {
-            auto name = StringTable::Get(isolate, "accessControl");
-            JS_EXPRESSION_RETURN(js_value, options->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "In option \"accessControl\"");
-                if V8_UNLIKELY(value != v8::AccessControl::DEFAULT && value != v8::AccessControl::ALL_CAN_READ && value != v8::AccessControl::ALL_CAN_WRITE) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"accessControl\": not a valid access control value.");
-                }
-                implementation->_access_control = static_cast<v8::AccessControl>(value);
-            }
-        }
-
         implementation->_getter_side_effect = v8::SideEffectType::kHasSideEffect;
         {
             auto name = StringTable::Get(isolate, "getterSideEffect");
@@ -156,10 +143,6 @@ namespace dragiyski::node_ext {
 
     v8::PropertyAttribute Template::NativeDataProperty::get_attributes() const {
         return _attributes;
-    }
-
-    v8::AccessControl Template::NativeDataProperty::get_access_control() const {
-        return _access_control;
     }
 
     v8::SideEffectType Template::NativeDataProperty::get_getter_side_effect() const {

@@ -66,13 +66,6 @@ namespace dragiyski::node_ext {
         auto target = std::unique_ptr<ObjectTemplate::NamedPropertyHandlerConfiguration>(new ObjectTemplate::NamedPropertyHandlerConfiguration());
 
         {
-            auto name = StringTable::Get(isolate, "shared");
-            JS_EXPRESSION_RETURN(value, options->Get(context, name));
-            if (!value->IsNullOrUndefined() && value->BooleanValue(isolate)) {
-                target->_flags = static_cast<v8::PropertyHandlerFlags>(static_cast<unsigned int>(target->_flags) | static_cast<unsigned int>(v8::PropertyHandlerFlags::kAllCanRead));
-            }
-        }
-        {
             auto name = StringTable::Get(isolate, "fallback");
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
             if (!value->IsNullOrUndefined() && value->BooleanValue(isolate)) {
@@ -96,12 +89,13 @@ namespace dragiyski::node_ext {
         {
             auto name = StringTable::Get(isolate, "getter");
             JS_EXPRESSION_RETURN(value, options->Get(context, name));
-            if (!value->IsNullOrUndefined()) {
-                if (!value->IsFunction() || !(value->IsObject() && value.As<v8::Object>()->IsCallable())) {
-                    JS_THROW_ERROR(TypeError, isolate, "NamedPropertyHandlerConfiguration.getter specified, but not a function");
-                }
-                target->_getter.Reset(isolate, value);
+            if (value->IsNullOrUndefined()) {
+                    JS_THROW_ERROR(TypeError, isolate, "NamedPropertyHandlerConfiguration.getter is required");
             }
+            if (!value->IsFunction() || !(value->IsObject() && value.As<v8::Object>()->IsCallable())) {
+                JS_THROW_ERROR(TypeError, isolate, "NamedPropertyHandlerConfiguration.getter specified, but not a function");
+            }
+            target->_getter.Reset(isolate, value);
         }
         {
             auto name = StringTable::Get(isolate, "setter");

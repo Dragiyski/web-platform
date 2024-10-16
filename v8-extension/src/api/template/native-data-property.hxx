@@ -23,13 +23,11 @@ namespace dragiyski::node_ext {
         Shared<v8::Value> _getter;
         Shared<v8::Value> _setter;
         v8::PropertyAttribute _attributes;
-        v8::AccessControl _access_control;
         v8::SideEffectType _getter_side_effect, _setter_side_effect;
     public:
         v8::Local<v8::Value> get_getter(v8::Isolate* isolate) const;
         v8::Local<v8::Value> get_setter(v8::Isolate* isolate) const;
         v8::PropertyAttribute get_attributes() const;
-        v8::AccessControl get_access_control() const;
         v8::SideEffectType get_getter_side_effect() const;
         v8::SideEffectType get_setter_side_effect() const;
     protected:

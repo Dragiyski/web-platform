@@ -68,22 +68,6 @@ NODE_MODULE_INIT() {
         auto name = StringTable::Get(isolate, "propertyAttribute");
         JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
     }
-    {
-        v8::Local<v8::Name> names[] = {
-            StringTable::Get(isolate, "DEFAULT"),
-            StringTable::Get(isolate, "ALL_CAN_READ"),
-            StringTable::Get(isolate, "ALL_CAN_WRITE"),
-        };
-        v8::Local<v8::Value> values[] = {
-            v8::Integer::New(isolate, v8::AccessControl::DEFAULT),
-            v8::Integer::New(isolate, v8::AccessControl::ALL_CAN_READ),
-            v8::Integer::New(isolate, v8::AccessControl::ALL_CAN_WRITE),
-        };
-        auto value = v8::Object::New(isolate, v8::Null(isolate), names, values, 3);
-        JS_EXPRESSION_IGNORE(value->SetIntegrityLevel(context, v8::IntegrityLevel::kFrozen));
-        auto name = StringTable::Get(isolate, "accessControl");
-        JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
-    }
 
     {
         v8::Local<v8::Name> names[] = {

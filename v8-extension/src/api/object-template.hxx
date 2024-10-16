@@ -32,20 +32,22 @@ namespace dragiyski::node_ext {
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
     public:
-        static void NamedPropertyGetterCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info);
-        static void NamedPropertySetterCallback(v8::Local<v8::Name> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<v8::Value> &info);
-        static void NamedPropertyQueryCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Integer> &info);
-        static void NamedPropertyDeleterCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Boolean> &info);
+        static v8::Intercepted NamedPropertyGetterCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info);
+        static v8::Intercepted NamedPropertySetterCallback(v8::Local<v8::Name> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
+        static v8::Intercepted NamedPropertyQueryCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Integer> &info);
+        static v8::Intercepted NamedPropertyDeleterCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Boolean> &info);
         static void NamedPropertyEnumeratorCallback(const v8::PropertyCallbackInfo<v8::Array> &info);
-        static void NamedPropertyDefinerCallback(v8::Local<v8::Name> property, const v8::PropertyDescriptor &descriptor, const v8::PropertyCallbackInfo<v8::Value> &info);
-        static void NamedPropertyDescriptorCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info);
-        static void IndexedPropertyGetterCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Value> &info);
-        static void IndexedPropertySetterCallback(uint32_t index, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<v8::Value> &info);
-        static void IndexedPropertyQueryCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Integer> &info);
-        static void IndexedPropertyDeleterCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Boolean> &info);
+        static v8::Intercepted NamedPropertyDefinerCallback(v8::Local<v8::Name> property, const v8::PropertyDescriptor &descriptor, const v8::PropertyCallbackInfo<void> &info);
+        static v8::Intercepted NamedPropertyDescriptorCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value> &info);
+        static v8::Intercepted IndexedPropertyGetterCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Value> &info);
+        static v8::Intercepted IndexedPropertySetterCallback(uint32_t index, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void> &info);
+        static v8::Intercepted IndexedPropertyQueryCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Integer> &info);
+        static v8::Intercepted IndexedPropertyDeleterCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Boolean> &info);
         static void IndexedPropertyEnumeratorCallback(const v8::PropertyCallbackInfo<v8::Array> &info);
-        static void IndexedPropertyDefinerCallback(uint32_t index, const v8::PropertyDescriptor &descriptor, const v8::PropertyCallbackInfo<v8::Value> &info);
-        static void IndexedPropertyDescriptorCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Value> &info);
+        static v8::Intercepted IndexedPropertyDefinerCallback(uint32_t index, const v8::PropertyDescriptor &descriptor, const v8::PropertyCallbackInfo<void> &info);
+        static v8::Intercepted IndexedPropertyDescriptorCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Value> &info);
+
+        static void InterceptGetter(const v8::FunctionCallbackInfo<v8::Value> &info);
     private:
         Shared<v8::ObjectTemplate> _value;
         bool _undetectable;

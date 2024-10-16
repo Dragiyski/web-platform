@@ -157,30 +157,45 @@ namespace dragiyski::node_ext {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"namedHandler\" is not an [object NamedPropertyHandlerConfiguration]");
                 }
                 target->_name_handler.Reset(isolate, js_object);
-                v8::NamedPropertyHandlerConfiguration configuration;
-                configuration.flags = named_handler->get_flags();
+                v8::NamedPropertyGetterCallback configuration_getter = NamedPropertyGetterCallback;
+                v8::NamedPropertySetterCallback configuration_setter = nullptr;
+                v8::NamedPropertyQueryCallback configuration_query = nullptr;
+                v8::NamedPropertyDeleterCallback configuration_deleter = nullptr;
+                v8::NamedPropertyEnumeratorCallback configuration_enumerator = nullptr;
+                v8::NamedPropertyDefinerCallback configuration_definer = nullptr;
+                v8::NamedPropertyDescriptorCallback configuration_descriptor = nullptr;
                 if (!named_handler->get_getter(isolate).IsEmpty()) {
-                    configuration.getter = NamedPropertyGetterCallback;
+                    JS_THROW_ERROR(TypeError, isolate, 'Missing required option: namedHandler.getter');
                 }
                 if (!named_handler->get_setter(isolate).IsEmpty()) {
-                    configuration.setter = NamedPropertySetterCallback;
+                    configuration_setter = NamedPropertySetterCallback;
                 }
                 if (!named_handler->get_query(isolate).IsEmpty()) {
-                    configuration.query = NamedPropertyQueryCallback;
+                    configuration_query = NamedPropertyQueryCallback;
                 }
                 if (!named_handler->get_deleter(isolate).IsEmpty()) {
-                    configuration.deleter = NamedPropertyDeleterCallback;
+                    configuration_deleter = NamedPropertyDeleterCallback;
                 }
                 if (!named_handler->get_enumerator(isolate).IsEmpty()) {
-                    configuration.enumerator = NamedPropertyEnumeratorCallback;
+                    configuration_enumerator = NamedPropertyEnumeratorCallback;
                 }
                 if (!named_handler->get_definer(isolate).IsEmpty()) {
-                    configuration.definer = NamedPropertyDefinerCallback;
+                    configuration_definer = NamedPropertyDefinerCallback;
                 }
                 if (!named_handler->get_descriptor(isolate).IsEmpty()) {
-                    configuration.descriptor = NamedPropertyDescriptorCallback;
+                    configuration_descriptor = NamedPropertyDescriptorCallback;
                 }
-                configuration.data = interface;
+                v8::NamedPropertyHandlerConfiguration configuration(
+                    configuration_getter,
+                    configuration_setter,
+                    configuration_query,
+                    configuration_deleter,
+                    configuration_enumerator,
+                    configuration_definer,
+                    configuration_descriptor,
+                    interface,
+                    named_handler->get_flags()
+                );
                 js_target->SetHandler(configuration);
             }
         }
@@ -198,30 +213,45 @@ namespace dragiyski::node_ext {
                     JS_THROW_ERROR(TypeError, isolate, "Option \"indexedHandler\" is not an [object IndexedPropertyHandlerConfiguration]");
                 }
                 target->_index_handler.Reset(isolate, js_object);
-                v8::IndexedPropertyHandlerConfiguration configuration;
-                configuration.flags = indexed_handler->get_flags();
+                v8::IndexedPropertyGetterCallbackV2 configuration_getter = nullptr;
+                v8::IndexedPropertySetterCallbackV2 configuration_setter = nullptr;
+                v8::IndexedPropertyQueryCallbackV2 configuration_query = nullptr;
+                v8::IndexedPropertyDeleterCallbackV2 configuration_deleter = nullptr;
+                v8::IndexedPropertyEnumeratorCallback configuration_enumerator = nullptr;
+                v8::IndexedPropertyDefinerCallbackV2 configuration_definer = nullptr;
+                v8::IndexedPropertyDescriptorCallbackV2 configuration_descriptor = nullptr;
                 if (!indexed_handler->get_getter(isolate).IsEmpty()) {
-                    configuration.getter = IndexedPropertyGetterCallback;
+                    configuration_getter = IndexedPropertyGetterCallback;
                 }
                 if (!indexed_handler->get_setter(isolate).IsEmpty()) {
-                    configuration.setter = IndexedPropertySetterCallback;
+                    configuration_setter = IndexedPropertySetterCallback;
                 }
                 if (!indexed_handler->get_query(isolate).IsEmpty()) {
-                    configuration.query = IndexedPropertyQueryCallback;
+                    configuration_query = IndexedPropertyQueryCallback;
                 }
                 if (!indexed_handler->get_deleter(isolate).IsEmpty()) {
-                    configuration.deleter = IndexedPropertyDeleterCallback;
+                    configuration_deleter = IndexedPropertyDeleterCallback;
                 }
                 if (!indexed_handler->get_enumerator(isolate).IsEmpty()) {
-                    configuration.enumerator = IndexedPropertyEnumeratorCallback;
+                    configuration_enumerator = IndexedPropertyEnumeratorCallback;
                 }
                 if (!indexed_handler->get_definer(isolate).IsEmpty()) {
-                    configuration.definer = IndexedPropertyDefinerCallback;
+                    configuration_definer = IndexedPropertyDefinerCallback;
                 }
                 if (!indexed_handler->get_descriptor(isolate).IsEmpty()) {
-                    configuration.descriptor = IndexedPropertyDescriptorCallback;
+                    configuration_descriptor = IndexedPropertyDescriptorCallback;
                 }
-                configuration.data = interface;
+                v8::IndexedPropertyHandlerConfiguration configuration(
+                    configuration_getter,
+                    configuration_setter,
+                    configuration_query,
+                    configuration_deleter,
+                    configuration_enumerator,
+                    configuration_definer,
+                    configuration_descriptor,
+                    interface,
+                    indexed_handler->get_flags()
+                );
                 js_target->SetHandler(configuration);
             }
         }
@@ -279,7 +309,6 @@ namespace dragiyski::node_ext {
                     AccessorProperty::getter_callback,
                     !setter.IsEmpty() ? AccessorProperty::setter_callback : nullptr,
                     data,
-                    value_accessor_property->get_access_control(),
                     value_accessor_property->get_attributes(),
                     value_accessor_property->get_getter_side_effect(),
                     value_accessor_property->get_setter_side_effect()
@@ -311,5 +340,93 @@ namespace dragiyski::node_ext {
 
         JS_EXPRESSION_IGNORE(Create(context, info.This(), options));
         info.GetReturnValue().Set(info.This());
+    }
+
+    v8::Intercepted ObjectTemplate::NamedPropertyGetterCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value>& info) {
+        static const constexpr auto __function_return_type__ = [](){ return v8::Intercepted::kNo; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyGetterCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyGetterCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return v8::Intercepted::kNo;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyGetterCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyGetterCallback");
+        }
+        auto callback = named_handler->get_getter(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return v8::Intercepted::kNo;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+                StringTable::Get(isolate, "value"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate),
+                v8::Undefined(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptGetter, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        auto data_strict = v8::Boolean::New(isolate, info.ShouldThrowOnError());
+
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "name"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                property,
+                js_descriptor,
+                interface,
+                data_strict
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            JS_EXPRESSION_RETURN(intercept_value, intercept_data->Get(context, StringTable::Get(isolate, "value")));
+            info.GetReturnValue().Set(intercept_value);
+            return v8::Intercepted::kYes;
+        }
+        return v8::Intercepted::kNo;
+    }
+
+    void ObjectTemplate::InterceptGetter(const v8::FunctionCallbackInfo<v8::Value>& info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        auto interface = info.Data().As<v8::Object>();
+        JS_EXPRESSION_IGNORE(interface->Set(context, StringTable::Get(isolate, "intercepted"), v8::True(isolate)));
+        JS_EXPRESSION_IGNORE(interface->Set(context, StringTable::Get(isolate, "value"), info[0]));
+        info.GetReturnValue().SetUndefined();
     }
 }

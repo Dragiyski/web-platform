@@ -80,7 +80,6 @@ namespace dragiyski::node_ext {
                 !setter.IsEmpty() ? NativeDataProperty::setter_callback : nullptr,
                 data,
                 value_native_data_property->get_attributes(),
-                value_native_data_property->get_access_control(),
                 value_native_data_property->get_getter_side_effect(),
                 value_native_data_property->get_setter_side_effect()
             );
@@ -130,7 +129,6 @@ namespace dragiyski::node_ext {
         // If "get" or "set" is present, the object is considered accessor descriptor, otherwise it is data descriptor;
         // If none of "value", "get" and "set" is specified, it is assumed "value" to be [undefined].
         v8::PropertyAttribute property_attribute = v8::PropertyAttribute::None;
-        v8::AccessControl access_control = v8::AccessControl::DEFAULT;
         v8::Local<v8::Value> property_value;
         FunctionTemplate* property_getter = nullptr;
         FunctionTemplate* property_setter = nullptr;
@@ -142,17 +140,6 @@ namespace dragiyski::node_ext {
                 JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "In option \"attributes\"");
                 value = value & static_cast<uint32_t>(JS_PROPERTY_ATTRIBUTE_ALL);
                 property_attribute = static_cast<v8::PropertyAttribute>(value);
-            }
-        }
-        {
-            auto name = StringTable::Get(isolate, "accessControl");
-            JS_EXPRESSION_RETURN(js_value, value_object->Get(context, name));
-            if (!js_value->IsNullOrUndefined()) {
-                JS_EXPRESSION_RETURN_WITH_ERROR_PREFIX(value, js_value->Uint32Value(context), context, "In option \"accessControl\"");
-                if (value != v8::AccessControl::DEFAULT && value != v8::AccessControl::ALL_CAN_READ && value != v8::AccessControl::ALL_CAN_WRITE) {
-                    JS_THROW_ERROR(TypeError, isolate, "Option \"accessControl\": not a valid access control value.");
-                }
-                access_control = static_cast<v8::AccessControl>(value);
             }
         }
         {
@@ -192,14 +179,12 @@ namespace dragiyski::node_ext {
         // Storing the provided object in the map is not desirable, instead a new frozen object with no prototype store all resolved values.
         v8::Local<v8::Object> map_value;
         {
-            v8::Local<v8::Name> map_value_keys[4] = {
+            v8::Local<v8::Name> map_value_keys[] = {
                 StringTable::Get(isolate, "attributes"),
-                StringTable::Get(isolate, "accessControl"),
                 {}, {}
             };
-            v8::Local<v8::Value> map_value_values[4] = {
+            v8::Local<v8::Value> map_value_values[] = {
                 v8::Integer::NewFromUnsigned(isolate, static_cast<uint32_t>(property_attribute)),
-                v8::Integer::NewFromUnsigned(isolate, static_cast<uint32_t>(access_control)),
                 {}, {}
             };
             std::size_t size = 2;
@@ -242,8 +227,7 @@ namespace dragiyski::node_ext {
                 key_name,
                 property_getter != nullptr ? property_getter->get_value(isolate) : v8::Local<v8::FunctionTemplate>(),
                 property_setter != nullptr ? property_setter->get_value(isolate) : v8::Local<v8::FunctionTemplate>(),
-                property_attribute,
-                access_control
+                property_attribute
             );
             return v8::JustVoid();
         }

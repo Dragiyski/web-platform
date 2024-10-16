@@ -33,7 +33,7 @@ namespace dragiyski::node_ext {
         {
             auto name = StringTable::Get(isolate, "size");
             auto value = v8::FunctionTemplate::New(isolate, prototype_size, {}, signature, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasNoSideEffect);
-            prototype_template->SetAccessorProperty(name, value, {}, JS_PROPERTY_ATTRIBUTE_STATIC, v8::AccessControl::ALL_CAN_READ);
+            prototype_template->SetAccessorProperty(name, value, {}, JS_PROPERTY_ATTRIBUTE_STATIC);
         }
         {
             auto entries = v8::FunctionTemplate::New(isolate, prototype_entries, {}, signature, 0, v8::ConstructorBehavior::kThrow);

@@ -65,13 +65,6 @@ namespace dragiyski::node_ext {
         auto options = info[0].As<v8::Object>();
         auto target = std::unique_ptr<ObjectTemplate::IndexedPropertyHandlerConfiguration>(new ObjectTemplate::IndexedPropertyHandlerConfiguration());
 
-        {
-            auto name = StringTable::Get(isolate, "shared");
-            JS_EXPRESSION_RETURN(value, options->Get(context, name));
-            if (!value->IsNullOrUndefined() && value->BooleanValue(isolate)) {
-                target->_flags = static_cast<v8::PropertyHandlerFlags>(static_cast<unsigned int>(target->_flags) | static_cast<unsigned int>(v8::PropertyHandlerFlags::kAllCanRead));
-            }
-        }
         // "Currently only valid for named interceptors." - If this becomes available for indexed interceptor, uncomment below:
         /* {
             auto name = StringTable::Get(isolate, "fallback");
