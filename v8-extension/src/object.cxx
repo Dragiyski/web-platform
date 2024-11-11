@@ -41,4 +41,85 @@ namespace js {
         }
         JS_THROW_ERROR(TypeError, isolate, "The callee is not a function");
     }
+
+    v8::Local<v8::Object> object_from_property_descriptor(v8::Isolate *isolate, const v8::PropertyDescriptor &descriptor) {
+        v8::HandleScope scope(isolate);
+
+        v8::Local<v8::Name> names[5];
+        v8::Local<v8::Value> values[5];
+        size_t num_entries = 0;
+
+        if (descriptor.has_configurable()) {
+            names[num_entries] = StringTable::Get(isolate, "configurable");
+            values[num_entries] = v8::Boolean::New(isolate, descriptor.configurable());
+            ++num_entries;
+        }
+
+        if (descriptor.has_enumerable()) {
+            names[num_entries] = StringTable::Get(isolate, "enumerable");
+            values[num_entries] = v8::Boolean::New(isolate, descriptor.enumerable());
+            ++num_entries;
+        }
+
+        if (descriptor.has_writable()) {
+            names[num_entries] = StringTable::Get(isolate, "writable");
+            values[num_entries] = v8::Boolean::New(isolate, descriptor.writable());
+            ++num_entries;
+        }
+
+        if (descriptor.has_value()) {
+            names[num_entries] = StringTable::Get(isolate, "value");
+            values[num_entries] = descriptor.value();
+            ++num_entries;
+        }
+
+        if (descriptor.has_get()) {
+            names[num_entries] = StringTable::Get(isolate, "get");
+            values[num_entries] = descriptor.get();
+            ++num_entries;
+        }
+
+        if (descriptor.has_set()) {
+            names[num_entries] = StringTable::Get(isolate, "set");
+            values[num_entries] = descriptor.set();
+            ++num_entries;
+        }
+
+        return v8::Object::New(isolate, v8::Null(isolate), names, values, num_entries);
+    }
+
+    // v8::Maybe<v8::PropertyDescriptor> property_descriptor_from_object(v8::Local<v8::Context> context, v8::Local<v8::Object> object) {
+    //     static const constexpr auto __function_return_type__ = v8::Nothing<v8::PropertyDescriptor>;
+    //     auto isolate = context->GetIsolate();
+    //     v8::HandleScope scope(isolate);
+
+    //     if V8_UNLIKELY(!object->IsObject()) {
+    //         JS_THROW_ERROR(TypeError, context, "Property description must be an object: ", object)
+    //     }
+
+    //     JS_EXPRESSION_RETURN(value_configurable, object->Get(context, StringTable::Get(isolate, "configurable")));
+    //     JS_EXPRESSION_RETURN(value_enumerable, object->Get(context, StringTable::Get(isolate, "enumerable")));
+    //     JS_EXPRESSION_RETURN(value_get, object->Get(context, StringTable::Get(isolate, "get")));
+    //     JS_EXPRESSION_RETURN(value_set, object->Get(context, StringTable::Get(isolate, "set")));
+    //     if (JS_IS_CALLABLE(value_get) || JS_IS_CALLABLE(value_set)) {
+    //         JS_EXPRESSION_RETURN(has_writable, object->Has(context, StringTable::Get(isolate, "writable")));
+    //         if (has_writable) {
+    //             JS_THROW_ERROR(TypeError, context, "Invalid property descriptor. Cannot both specify accessors and a value or writable attribute, ", object);
+    //         }
+    //         JS_EXPRESSION_RETURN(has_value, object->Has(context, StringTable::Get(isolate, "value")));
+    //         if (has_value) {
+    //             JS_THROW_ERROR(TypeError, context, "Invalid property descriptor. Cannot both specify accessors and a value or writable attribute, ", object);
+    //         }
+    //         v8::PropertyDescriptor descriptor(JS_IS_CALLABLE(value_get) ? value_get : v8::Local<v8::Value>(), JS_IS_CALLABLE(value_set) ? value_set : v8::Local<v8::Value>());
+    //         descriptor.set_configurable(value_configurable->BooleanValue(isolate));
+    //         descriptor.set_enumerable(value_enumerable->BooleanValue(isolate));
+    //         return v8::Just(std::move(descriptor));
+    //     }
+    //     JS_EXPRESSION_RETURN(value_writable, object->Get(context, StringTable::Get(isolate, "writable")));
+    //     JS_EXPRESSION_RETURN(value, object->Get(context, StringTable::Get(isolate, "value")));
+    //     v8::PropertyDescriptor descriptor(value, value_writable->BooleanValue(isolate));
+    //     descriptor.set_configurable(value_configurable->BooleanValue(isolate));
+    //     descriptor.set_enumerable(value_enumerable->BooleanValue(isolate));
+    //     return v8::Just(std::move(descriptor));
+    // }
 }

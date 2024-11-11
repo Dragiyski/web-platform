@@ -47,7 +47,8 @@ namespace dragiyski::node_ext {
         static v8::Intercepted IndexedPropertyDefinerCallback(uint32_t index, const v8::PropertyDescriptor &descriptor, const v8::PropertyCallbackInfo<void> &info);
         static v8::Intercepted IndexedPropertyDescriptorCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Value> &info);
 
-        static void InterceptGetter(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void InterceptReturn(const v8::FunctionCallbackInfo<v8::Value> &info);
+        static void InterceptIgnore(const v8::FunctionCallbackInfo<v8::Value> &info);
     private:
         Shared<v8::ObjectTemplate> _value;
         bool _undetectable;

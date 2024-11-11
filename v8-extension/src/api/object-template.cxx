@@ -165,7 +165,7 @@ namespace dragiyski::node_ext {
                 v8::NamedPropertyDefinerCallback configuration_definer = nullptr;
                 v8::NamedPropertyDescriptorCallback configuration_descriptor = nullptr;
                 if (!named_handler->get_getter(isolate).IsEmpty()) {
-                    JS_THROW_ERROR(TypeError, isolate, 'Missing required option: namedHandler.getter');
+                    JS_THROW_ERROR(TypeError, isolate, "Missing required option: namedHandler.getter");
                 }
                 if (!named_handler->get_setter(isolate).IsEmpty()) {
                     configuration_setter = NamedPropertySetterCallback;
@@ -343,7 +343,8 @@ namespace dragiyski::node_ext {
     }
 
     v8::Intercepted ObjectTemplate::NamedPropertyGetterCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value>& info) {
-        static const constexpr auto __function_return_type__ = [](){ return v8::Intercepted::kNo; };
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
@@ -359,7 +360,7 @@ namespace dragiyski::node_ext {
         auto js_descriptor = js_template->get_name_handler(isolate);
         if V8_UNLIKELY (!js_descriptor->IsObject()) {
             if (js_descriptor->IsNullOrUndefined()) {
-                return v8::Intercepted::kNo;
+                return __return_value__;
             }
             JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyGetterCallback");
         }
@@ -369,7 +370,7 @@ namespace dragiyski::node_ext {
         }
         auto callback = named_handler->get_getter(isolate);
         if (!JS_IS_CALLABLE(callback)) {
-            return v8::Intercepted::kNo;
+            return __return_value__;
         }
 
         v8::Local<v8::Object> intercept_data;
@@ -384,9 +385,8 @@ namespace dragiyski::node_ext {
             };
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
-        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptGetter, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        auto data_strict = v8::Boolean::New(isolate, info.ShouldThrowOnError());
-
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
@@ -403,7 +403,7 @@ namespace dragiyski::node_ext {
                 property,
                 js_descriptor,
                 interface,
-                data_strict
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
             };
             call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
@@ -411,14 +411,1174 @@ namespace dragiyski::node_ext {
         JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
         JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
         if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
             JS_EXPRESSION_RETURN(intercept_value, intercept_data->Get(context, StringTable::Get(isolate, "value")));
             info.GetReturnValue().Set(intercept_value);
-            return v8::Intercepted::kYes;
+            return __return_value__;
         }
-        return v8::Intercepted::kNo;
+        return __return_value__;
     }
 
-    void ObjectTemplate::InterceptGetter(const v8::FunctionCallbackInfo<v8::Value>& info) {
+    v8::Intercepted ObjectTemplate::NamedPropertySetterCallback(v8::Local<v8::Name> property, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertySetterCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertySetterCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertySetterCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertySetterCallback");
+        }
+        auto callback = named_handler->get_setter(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptIgnore, intercept_data, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "name"),
+                StringTable::Get(isolate, "value"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                property,
+                value,
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+        }
+        return __return_value__;
+    }
+
+    v8::Intercepted ObjectTemplate::NamedPropertyQueryCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Integer>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyQueryCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyQueryCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyQueryCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyQueryCallback");
+        }
+        auto callback = named_handler->get_query(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+                StringTable::Get(isolate, "value"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate),
+                v8::Undefined(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "name"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                property,
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+            JS_EXPRESSION_RETURN(intercept_value, intercept_data->Get(context, StringTable::Get(isolate, "value")));
+            if (intercept_value->IsNumber()) {
+                JS_THROW_ERROR(TypeError, context, "Invalid property attributes, expected an unsigned integer mask");
+            }
+            JS_EXPRESSION_RETURN(flags, intercept_value->Uint32Value(context));
+            if (flags & ~static_cast<decltype(flags)>(JS_PROPERTY_ATTRIBUTE_ALL)) {
+                JS_THROW_ERROR(TypeError, context, "Invalid property attributes, expected mask of ", static_cast<decltype(flags)>(JS_PROPERTY_ATTRIBUTE_ALL), ", got ", flags);
+            }
+            info.GetReturnValue().Set(flags);
+        }
+        return __return_value__;
+    }
+
+    v8::Intercepted ObjectTemplate::NamedPropertyDeleterCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Boolean>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto callback = named_handler->get_deleter(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+                StringTable::Get(isolate, "value"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate),
+                v8::Undefined(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "name"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                property,
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+            JS_EXPRESSION_RETURN(intercept_value, intercept_data->Get(context, StringTable::Get(isolate, "value")));
+            info.GetReturnValue().Set(intercept_value->BooleanValue(isolate));
+        }
+        return __return_value__;
+    }
+
+    void ObjectTemplate::NamedPropertyEnumeratorCallback(const v8::PropertyCallbackInfo<v8::Array>& info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyEnumeratorCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyEnumeratorCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyEnumeratorCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyEnumeratorCallback");
+        }
+        auto callback = named_handler->get_definer(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return;
+        }
+
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data };
+        JS_EXPRESSION_RETURN(value_property_names, object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        if (value_property_names->IsNullOrUndefined()) {
+            return;
+        }
+        if (!value_property_names->IsArray()) {
+            JS_THROW_ERROR(TypeError, isolate, "ObjectTemplate::NamedPropertyEnumeratorCallback: Must return Array, if not null/undefined");
+        }
+        auto array_property_names = value_property_names.As<v8::Array>();
+        for (decltype(array_property_names->Length()) i = 0; i < array_property_names->Length(); ++i) {
+            JS_EXPRESSION_RETURN(has_index, array_property_names->HasRealIndexedProperty(context, i));
+            if (!has_index) {
+                JS_THROW_ERROR(TypeError, isolate, "ObjectTemplate::NamedPropertyEnumeratorCallback: Returned array must be plain continous array of names");
+            }
+            JS_EXPRESSION_RETURN(value_name, array_property_names->Get(context, i));
+            if (!value_name->IsName()) {
+                JS_THROW_ERROR(TypeError, isolate, "ObjectTemplate::NamedPropertyEnumeratorCallback: Returned array must be plain continous array of names");
+            }
+        }
+        info.GetReturnValue().Set(array_property_names);
+    }
+
+    v8::Intercepted ObjectTemplate::NamedPropertyDefinerCallback(v8::Local<v8::Name> property, const v8::PropertyDescriptor& descriptor, const v8::PropertyCallbackInfo<void>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDefinerCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDefinerCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDefinerCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDefinerCallback");
+        }
+        auto callback = named_handler->get_definer(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptIgnore, intercept_data, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "name"),
+                StringTable::Get(isolate, "definition"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                property,
+                object_from_property_descriptor(isolate, descriptor),
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+        }
+        return __return_value__;
+    }
+
+    v8::Intercepted ObjectTemplate::NamedPropertyDescriptorCallback(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto callback = named_handler->get_descriptor(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+                StringTable::Get(isolate, "value"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate),
+                v8::Undefined(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "name"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                property,
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+            JS_EXPRESSION_RETURN(intercept_value, intercept_data->Get(context, StringTable::Get(isolate, "value")));
+            if (!intercept_value->IsObject()) {
+                JS_THROW_ERROR(TypeError, isolate, "Invalid property descriptor.");
+            }
+            // The callback result value have very specific requirements:
+            // 1. It should be plain object, that is Object.prototype(result) === Object (and not null)
+            // 2. "get" or "set" should not be specified alongside "value" and "writable"
+            // 3. "get" and "set" should be callable, if specified.
+            // 4. Properties should be specified as own properties.
+            // 5. The object should be plain, not exotic object.
+            // If any of those fails, Utils::ApiCheck will invoke fatal error on the isolate, crushing the engine.
+            // Thus copying into plain object might be necessary.
+            auto result = v8::Object::New(isolate);
+            auto intercept_object = intercept_value.As<v8::Object>();
+
+            auto name_get = StringTable::Get(isolate, "get");
+            auto name_set = StringTable::Get(isolate, "set");
+            auto name_value = StringTable::Get(isolate, "value");
+            auto name_writable = StringTable::Get(isolate, "writable");
+            auto name_enumerable = StringTable::Get(isolate, "enumerable");
+            auto name_configurable = StringTable::Get(isolate, "configurable");
+
+            bool is_accessor = false, is_data = false;
+
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_get));
+                if (has_property) {
+                    is_accessor |= true;
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_get));
+                    if (!JS_IS_CALLABLE(property_value)) {
+                        JS_THROW_ERROR(TypeError, isolate, "Invalid property descriptor.");
+                    }
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_get, property_value));
+                }
+            }
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_set));
+                if (has_property) {
+                    is_accessor |= true;
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_set));
+                    if (!JS_IS_CALLABLE(property_value)) {
+                        JS_THROW_ERROR(TypeError, isolate, "Invalid property descriptor.");
+                    }
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_set, property_value));
+                }
+            }
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_writable));
+                if (has_property) {
+                    is_data |= true;
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_writable));
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_writable, property_value->ToBoolean(isolate)));
+                } else if (!is_accessor) {
+                    is_data |= true;
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_writable, v8::False(isolate)));
+                }
+            }
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_value));
+                if (has_property) {
+                    is_data |= true;
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_writable));
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_value, property_value));
+                } else if (!is_accessor) {
+                    is_data |= true;
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_value, v8::Undefined(isolate)));
+                }
+            }
+            if (is_accessor && is_data) {
+                JS_THROW_ERROR(TypeError, context, "Invalid property descriptor. Cannot both specify accessors and a value or writable attribute, ", intercept_value);
+            }
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_enumerable));
+                if (has_property) {
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_enumerable));
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_enumerable, property_value->ToBoolean(isolate)));
+                } else {
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_enumerable, v8::False(isolate)));
+                }
+            }
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_configurable));
+                if (has_property) {
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_configurable));
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_configurable, property_value->ToBoolean(isolate)));
+                } else {
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_configurable, v8::False(isolate)));
+                }
+            }
+            info.GetReturnValue().Set(result);
+        }
+        return __return_value__;
+    }
+
+    v8::Intercepted ObjectTemplate::IndexedPropertyGetterCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Value>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyGetterCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyGetterCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyGetterCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyGetterCallback");
+        }
+        auto callback = named_handler->get_getter(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+                StringTable::Get(isolate, "value"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate),
+                v8::Undefined(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "index"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                v8::Integer::NewFromUnsigned(isolate, index),
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+            JS_EXPRESSION_RETURN(intercept_value, intercept_data->Get(context, StringTable::Get(isolate, "value")));
+            info.GetReturnValue().Set(intercept_value);
+            return __return_value__;
+        }
+        return __return_value__;
+    }
+
+    v8::Intercepted ObjectTemplate::IndexedPropertySetterCallback(uint32_t index, v8::Local<v8::Value> value, const v8::PropertyCallbackInfo<void>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertySetterCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertySetterCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertySetterCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertySetterCallback");
+        }
+        auto callback = named_handler->get_setter(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptIgnore, intercept_data, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "index"),
+                StringTable::Get(isolate, "value"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                v8::Integer::NewFromUnsigned(isolate, index),
+                value,
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+        }
+        return __return_value__;
+    }
+
+    v8::Intercepted ObjectTemplate::IndexedPropertyQueryCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Integer>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyQueryCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyQueryCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyQueryCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyQueryCallback");
+        }
+        auto callback = named_handler->get_query(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+                StringTable::Get(isolate, "value"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate),
+                v8::Undefined(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "index"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                v8::Integer::NewFromUnsigned(isolate, index),
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+            JS_EXPRESSION_RETURN(intercept_value, intercept_data->Get(context, StringTable::Get(isolate, "value")));
+            if (intercept_value->IsNumber()) {
+                JS_THROW_ERROR(TypeError, context, "Invalid property attributes, expected an unsigned integer mask");
+            }
+            JS_EXPRESSION_RETURN(flags, intercept_value->Uint32Value(context));
+            if (flags & ~static_cast<decltype(flags)>(JS_PROPERTY_ATTRIBUTE_ALL)) {
+                JS_THROW_ERROR(TypeError, context, "Invalid property attributes, expected mask of ", static_cast<decltype(flags)>(JS_PROPERTY_ATTRIBUTE_ALL), ", got ", flags);
+            }
+            info.GetReturnValue().Set(flags);
+        }
+        return __return_value__;
+    }
+
+    v8::Intercepted ObjectTemplate::IndexedPropertyDeleterCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Boolean>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto callback = named_handler->get_deleter(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+                StringTable::Get(isolate, "value"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate),
+                v8::Undefined(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "index"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                v8::Integer::NewFromUnsigned(isolate, index),
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+            JS_EXPRESSION_RETURN(intercept_value, intercept_data->Get(context, StringTable::Get(isolate, "value")));
+            info.GetReturnValue().Set(intercept_value->BooleanValue(isolate));
+        }
+        return __return_value__;
+    }
+
+    void ObjectTemplate::IndexedPropertyEnumeratorCallback(const v8::PropertyCallbackInfo<v8::Array>& info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyEnumeratorCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyEnumeratorCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyEnumeratorCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyEnumeratorCallback");
+        }
+        auto callback = named_handler->get_definer(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return;
+        }
+
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data };
+        JS_EXPRESSION_RETURN(value_property_names, object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        if (value_property_names->IsNullOrUndefined()) {
+            return;
+        }
+        if (!value_property_names->IsArray()) {
+            JS_THROW_ERROR(TypeError, isolate, "ObjectTemplate::IndexedPropertyEnumeratorCallback: Must return Array, if not null/undefined");
+        }
+        auto array_property_names = value_property_names.As<v8::Array>();
+        for (decltype(array_property_names->Length()) i = 0; i < array_property_names->Length(); ++i) {
+            JS_EXPRESSION_RETURN(has_index, array_property_names->HasRealIndexedProperty(context, i));
+            if (!has_index) {
+                JS_THROW_ERROR(TypeError, isolate, "ObjectTemplate::IndexedPropertyEnumeratorCallback: Returned array must be plain continous array of indices");
+            }
+            JS_EXPRESSION_RETURN(value_name, array_property_names->Get(context, i));
+            if (!value_name->IsUint32()) {
+                JS_THROW_ERROR(TypeError, isolate, "ObjectTemplate::IndexedPropertyEnumeratorCallback: Returned array must be plain continous array of indices");
+            }
+        }
+        info.GetReturnValue().Set(array_property_names);
+    }
+
+    v8::Intercepted ObjectTemplate::IndexedPropertyDefinerCallback(uint32_t index, const v8::PropertyDescriptor& descriptor, const v8::PropertyCallbackInfo<void>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDefinerCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDefinerCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDefinerCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDefinerCallback");
+        }
+        auto callback = named_handler->get_definer(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptIgnore, intercept_data, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "index"),
+                StringTable::Get(isolate, "definition"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                v8::Integer::NewFromUnsigned(isolate, index),
+                object_from_property_descriptor(isolate, descriptor),
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+        }
+        return __return_value__;
+    }
+
+    v8::Intercepted ObjectTemplate::IndexedPropertyDescriptorCallback(uint32_t index, const v8::PropertyCallbackInfo<v8::Value>& info) {
+        auto __return_value__ = v8::Intercepted::kNo;
+        static const auto __function_return_type__ = [&__return_value__](){ return __return_value__; };
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY (!info.Data()->IsObject()) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto interface = info.Data().As<v8::Object>();
+        auto js_template = Object<ObjectTemplate>::get_implementation(isolate, interface);
+        if V8_UNLIKELY (js_template == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto js_descriptor = js_template->get_name_handler(isolate);
+        if V8_UNLIKELY (!js_descriptor->IsObject()) {
+            if (js_descriptor->IsNullOrUndefined()) {
+                return __return_value__;
+            }
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto named_handler = Object<ObjectTemplate::NamedPropertyHandlerConfiguration>::get_implementation(isolate, js_descriptor);
+        if V8_UNLIKELY (named_handler == nullptr) {
+            JS_THROW_ERROR(Error, isolate, "Invalid invocation: ObjectTemplate::NamedPropertyDeleterCallback");
+        }
+        auto callback = named_handler->get_descriptor(isolate);
+        if (!JS_IS_CALLABLE(callback)) {
+            return __return_value__;
+        }
+
+        v8::Local<v8::Object> intercept_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "intercepted"),
+                StringTable::Get(isolate, "value"),
+            };
+            v8::Local<v8::Value> values[] = {
+                v8::False(isolate),
+                v8::Undefined(isolate)
+            };
+            intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        
+        v8::Local<v8::Object> call_data;
+        {
+            v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "this"),
+                StringTable::Get(isolate, "holder"),
+                StringTable::Get(isolate, "index"),
+                StringTable::Get(isolate, "descriptor"),
+                StringTable::Get(isolate, "template"),
+                StringTable::Get(isolate, "strict")
+            };
+            v8::Local<v8::Value> values[] = {
+                info.This(),
+                info.Holder(),
+                v8::Integer::NewFromUnsigned(isolate, index),
+                js_descriptor,
+                interface,
+                v8::Boolean::New(isolate, info.ShouldThrowOnError())
+            };
+            call_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
+        }
+        v8::Local<v8::Value> call_args[] = { call_data, intercept_function };
+        JS_EXPRESSION_IGNORE(object_or_function_call(context, callback, v8::Undefined(isolate), sizeof(call_args) / sizeof(v8::Local<v8::Value>), call_args));
+        JS_EXPRESSION_RETURN(is_intercepted, intercept_data->Get(context, StringTable::Get(isolate, "intercepted")));
+        if (is_intercepted->BooleanValue(isolate)) {
+            __return_value__ = v8::Intercepted::kYes;
+            JS_EXPRESSION_RETURN(intercept_value, intercept_data->Get(context, StringTable::Get(isolate, "value")));
+            if (!intercept_value->IsObject()) {
+                JS_THROW_ERROR(TypeError, isolate, "Invalid property descriptor.");
+            }
+            // The callback result value have very specific requirements:
+            // 1. It should be plain object, that is Object.prototype(result) === Object (and not null)
+            // 2. "get" or "set" should not be specified alongside "value" and "writable"
+            // 3. "get" and "set" should be callable, if specified.
+            // 4. Properties should be specified as own properties.
+            // 5. The object should be plain, not exotic object.
+            // If any of those fails, Utils::ApiCheck will invoke fatal error on the isolate, crushing the engine.
+            // Thus copying into plain object might be necessary.
+            auto result = v8::Object::New(isolate);
+            auto intercept_object = intercept_value.As<v8::Object>();
+
+            auto name_get = StringTable::Get(isolate, "get");
+            auto name_set = StringTable::Get(isolate, "set");
+            auto name_value = StringTable::Get(isolate, "value");
+            auto name_writable = StringTable::Get(isolate, "writable");
+            auto name_enumerable = StringTable::Get(isolate, "enumerable");
+            auto name_configurable = StringTable::Get(isolate, "configurable");
+
+            bool is_accessor = false, is_data = false;
+
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_get));
+                if (has_property) {
+                    is_accessor |= true;
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_get));
+                    if (!JS_IS_CALLABLE(property_value)) {
+                        JS_THROW_ERROR(TypeError, isolate, "Invalid property descriptor.");
+                    }
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_get, property_value));
+                }
+            }
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_set));
+                if (has_property) {
+                    is_accessor |= true;
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_set));
+                    if (!JS_IS_CALLABLE(property_value)) {
+                        JS_THROW_ERROR(TypeError, isolate, "Invalid property descriptor.");
+                    }
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_set, property_value));
+                }
+            }
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_writable));
+                if (has_property) {
+                    is_data |= true;
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_writable));
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_writable, property_value->ToBoolean(isolate)));
+                } else if (!is_accessor) {
+                    is_data |= true;
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_writable, v8::False(isolate)));
+                }
+            }
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_value));
+                if (has_property) {
+                    is_data |= true;
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_writable));
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_value, property_value));
+                } else if (!is_accessor) {
+                    is_data |= true;
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_value, v8::Undefined(isolate)));
+                }
+            }
+            if (is_accessor && is_data) {
+                JS_THROW_ERROR(TypeError, context, "Invalid property descriptor. Cannot both specify accessors and a value or writable attribute, ", intercept_value);
+            }
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_enumerable));
+                if (has_property) {
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_enumerable));
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_enumerable, property_value->ToBoolean(isolate)));
+                } else {
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_enumerable, v8::False(isolate)));
+                }
+            }
+            {
+                JS_EXPRESSION_RETURN(has_property, intercept_object->HasRealNamedProperty(context, name_configurable));
+                if (has_property) {
+                    JS_EXPRESSION_RETURN(property_value, intercept_object->GetRealNamedProperty(context, name_configurable));
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_configurable, property_value->ToBoolean(isolate)));
+                } else {
+                    JS_EXPRESSION_IGNORE(result->Set(context, name_configurable, v8::False(isolate)));
+                }
+            }
+            info.GetReturnValue().Set(result);
+        }
+        return __return_value__;
+    }
+
+    void ObjectTemplate::InterceptReturn(const v8::FunctionCallbackInfo<v8::Value>& info) {
         using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
@@ -427,6 +1587,17 @@ namespace dragiyski::node_ext {
         auto interface = info.Data().As<v8::Object>();
         JS_EXPRESSION_IGNORE(interface->Set(context, StringTable::Get(isolate, "intercepted"), v8::True(isolate)));
         JS_EXPRESSION_IGNORE(interface->Set(context, StringTable::Get(isolate, "value"), info[0]));
+        info.GetReturnValue().SetUndefined();
+    }
+
+    void ObjectTemplate::InterceptIgnore(const v8::FunctionCallbackInfo<v8::Value>& info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+
+        auto interface = info.Data().As<v8::Object>();
+        JS_EXPRESSION_IGNORE(interface->Set(context, StringTable::Get(isolate, "intercepted"), v8::True(isolate)));
         info.GetReturnValue().SetUndefined();
     }
 }

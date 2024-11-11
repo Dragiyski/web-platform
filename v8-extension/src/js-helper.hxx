@@ -107,7 +107,7 @@ namespace js {
         }
 
         static constexpr maybe_type to_maybe(T && value) {
-            v8::Just(value);
+            return v8::Just(value);
         }
     };
 

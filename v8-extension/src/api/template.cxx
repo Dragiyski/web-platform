@@ -8,6 +8,7 @@
 
 #include "../js-string-table.hxx"
 #include "../error-message.hxx"
+#include <cassert>
 #include <map>
 
 namespace dragiyski::node_ext {
