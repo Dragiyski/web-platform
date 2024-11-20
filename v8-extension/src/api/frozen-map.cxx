@@ -106,7 +106,7 @@ namespace dragiyski::node_ext {
 
     void FrozenMap::Iterator::uninitialize(v8::Isolate* isolate) {
         Object<FrozenMap::Iterator>::uninitialize(isolate);
-        per_isolate_template.erase(isolate);
+        per_isolate_iterator_template.erase(isolate);
     }
 
     v8::Local<v8::ObjectTemplate> FrozenMap::Iterator::get_template(v8::Isolate* isolate) {

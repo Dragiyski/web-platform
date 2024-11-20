@@ -91,14 +91,17 @@ namespace dragiyski::node_ext {
             std::forward_as_tuple(isolate),
             std::forward_as_tuple(isolate, class_template)
         );
+
+        Object<Context>::initialize(isolate);
     }
 
     void Context::uninitialize(v8::Isolate* isolate) {
+        Object<Context>::uninitialize(isolate);
         per_isolate_template.erase(isolate);
         per_isolate_class_symbol.erase(isolate);
     }
 
-    v8::Local<v8::FunctionTemplate> Context::get_class_template(v8::Isolate* isolate) {
+    v8::Local<v8::FunctionTemplate> Context::get_template(v8::Isolate* isolate) {
         assert(per_isolate_template.contains(isolate));
         return per_isolate_template[isolate].Get(isolate);
     }
@@ -113,6 +116,14 @@ namespace dragiyski::node_ext {
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
+
+        if V8_UNLIKELY(!info.IsConstructCall()) {
+            JS_THROW_ERROR(TypeError, isolate, "Class constructor ", "Context", " cannot be invoked without 'new'");
+        }
+
+        if (!get_template(isolate)->HasInstance(info.This())) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal constructor");
+        }
 
         // TODO: Allow single argument - a wrapper for object template or function template (whose InstanceTemplate would be used).
         // if (info.Length() < 1) {
@@ -129,12 +140,6 @@ namespace dragiyski::node_ext {
         // Instead we shall only access globalTemplate here. This shall be the only way to pre-initialize a context.
         // Anything else must be done by retrieving the global object after context creation.
 
-        auto holder = info.This()->FindInstanceInPrototypeChain(get_class_template(isolate));
-        if (holder.IsEmpty() || !holder->IsObject() || holder->InternalFieldCount() < 1) {
-            auto message = StringTable::Get(isolate, "Illegal constructor");
-            JS_THROW_ERROR(TypeError, isolate, message);
-        }
-
         auto new_context = v8::Context::New(
             isolate,
             nullptr,
@@ -144,12 +149,10 @@ namespace dragiyski::node_ext {
             context->GetMicrotaskQueue()
         );
 
-        JS_EXPRESSION_IGNORE(new_context->Global()->SetPrivate(context, Context::get_class_symbol(isolate), holder));
-        JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_this_symbol(isolate), info.This()));
+        JS_EXPRESSION_IGNORE(new_context->Global()->SetPrivate(context, Context::get_class_symbol(isolate), info.This()));
 
-        new_context->SetSecurityToken(context->GetSecurityToken());
-        auto wrapper = new Context(isolate, new_context);
-        wrapper->Wrap(isolate, holder);
+        auto implementation = new Context(isolate, new_context);
+        implementation->set_interface(isolate, info.This());
 
         info.GetReturnValue().Set(info.This());
     }
@@ -160,8 +163,7 @@ namespace dragiyski::node_ext {
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
 
-        JS_EXPRESSION_RETURN(holder, get_context_holder(context, context));
-        JS_EXPRESSION_RETURN(self, holder->GetPrivate(context, Wrapper::get_this_symbol(isolate)));
+        JS_EXPRESSION_RETURN(self, get_context_holder(context, context));
         info.GetReturnValue().Set(self);
         return;
     }
@@ -181,7 +183,7 @@ namespace dragiyski::node_ext {
                 JS_EXPRESSION_IGNORE(global->DeletePrivate(target_context, class_symbol));
                 goto create_new_holder;
             }
-            auto wrapper = Wrapper::Unwrap<Context>(isolate, existing_holder.As<v8::Object>());
+            auto wrapper = Object<Context>::get_implementation(isolate, existing_holder.As<v8::Object>());
             if V8_UNLIKELY(wrapper == nullptr) {
                 JS_EXPRESSION_IGNORE(global->DeletePrivate(target_context, class_symbol));
                 goto create_new_holder;
@@ -189,25 +191,24 @@ namespace dragiyski::node_ext {
             auto wrapper_value = wrapper->get_value(isolate);
             if V8_UNLIKELY(context.IsEmpty()) {
                 JS_EXPRESSION_IGNORE(global->DeletePrivate(target_context, class_symbol));
-                Wrapper::dispose(isolate, wrapper);
+                wrapper->clear_interface(isolate);
                 goto create_new_holder;
             }
             if V8_UNLIKELY(!wrapper_value->Global()->SameValue(global)) {
                 JS_EXPRESSION_IGNORE(global->DeletePrivate(target_context, class_symbol));
-                Wrapper::dispose(isolate, wrapper);
+                wrapper->clear_interface(isolate);
                 goto create_new_holder;
             }
             return existing_holder.As<v8::Object>();
         }
     create_new_holder:
         {
-            auto class_template = get_class_template(isolate);
+            auto class_template = get_template(isolate);
             // Instances must be created in the control context, otherwise access checks may fail.
             JS_EXPRESSION_RETURN(holder, class_template->InstanceTemplate()->NewInstance(context));
             JS_EXPRESSION_IGNORE(global->SetPrivate(target_context, class_symbol, holder));
-            JS_EXPRESSION_IGNORE(holder->SetPrivate(context, Wrapper::get_this_symbol(isolate), holder));
             auto wrapper = new Context(isolate, target_context);
-            wrapper->Wrap(isolate, holder);
+            wrapper->set_interface(isolate, holder);
             return holder;
         }
     }
@@ -234,26 +235,27 @@ namespace dragiyski::node_ext {
         }
 
         JS_EXPRESSION_RETURN(holder, get_context_holder(context, creation_context));
-        JS_EXPRESSION_RETURN(self, holder->GetPrivate(context, Wrapper::get_this_symbol(isolate)));
-        info.GetReturnValue().Set(self);
+        info.GetReturnValue().Set(holder);
         return;
     }
 
     void Context::prototype_get_global(const v8::FunctionCallbackInfo<v8::Value>& info) {
+        using __function_return_type__ = void;
         auto isolate = info.GetIsolate();
         v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
 
-        auto holder = info.Holder();
-        auto wrapper = Wrapper::Unwrap<Context>(isolate, holder);
-        info.GetReturnValue().SetUndefined();
-        if V8_UNLIKELY(wrapper == nullptr) {
+        auto implementation = get_implementation(isolate, info.This());
+        if V8_UNLIKELY(implementation == nullptr) {
+            v8::Local<v8::String> receiver_type;
+            JS_EXPRESSION_RETURN(receiver, type_of(context, info.This()));
+            JS_THROW_ERROR(TypeError, isolate, "Context", ".", "prototype", ".", "global", " called on incompatible receiver ", receiver);
+        }
+        auto target_context = implementation->get_value(isolate);
+        if V8_UNLIKELY(target_context.IsEmpty()) {
             return;
         }
-        auto wrapped_context = wrapper->get_value(isolate);
-        if V8_UNLIKELY(wrapped_context.IsEmpty()) {
-            return;
-        }
-        info.GetReturnValue().Set(wrapped_context->Global());
+        info.GetReturnValue().Set(target_context->Global());
     }
 
     void Context::prototype_compile_function(const v8::FunctionCallbackInfo<v8::Value>& info) {
@@ -352,18 +354,19 @@ namespace dragiyski::node_ext {
             return;
         }
 
-        auto holder = info.Holder();
-        auto wrapper = Wrapper::Unwrap<Context>(isolate, holder);
-        if V8_UNLIKELY(wrapper == nullptr) {
-            JS_THROW_ERROR(ReferenceError, isolate, "the wrapped context is already disposed");
+        auto implementation = get_implementation(isolate, info.This());
+        if V8_UNLIKELY(implementation == nullptr) {
+            v8::Local<v8::String> receiver_type;
+            JS_EXPRESSION_RETURN(receiver, type_of(context, info.This()));
+            JS_THROW_ERROR(TypeError, isolate, "Context", ".", "prototype", ".", "compileFunction", " called on incompatible receiver ", receiver);
         }
-        auto wrapped_context = wrapper->get_value(isolate);
-        if V8_UNLIKELY(wrapped_context.IsEmpty()) {
+        auto target_context = implementation->get_value(isolate);
+        if V8_UNLIKELY(target_context.IsEmpty()) {
             JS_THROW_ERROR(ReferenceError, isolate, "the wrapped context is already disposed");
         }
 
         JS_EXPRESSION_RETURN(compiled_function, v8::ScriptCompiler::CompileFunction(
-            wrapped_context,
+            target_context,
             source.get(),
             arguments_length,
             arguments_data,
@@ -383,7 +386,6 @@ namespace dragiyski::node_ext {
         return _value.Get(isolate);
     }
 
-    Context::Context(v8::Isolate* isolate, v8::Local<v8::Context> value) :
-        Wrapper(),
+    Context::Context(v8::Isolate* isolate, v8::Local<v8::Context> value) : 
         _value(isolate, value) {}
 };

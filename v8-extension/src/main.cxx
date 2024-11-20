@@ -3,7 +3,10 @@
 #include "js-helper.hxx"
 #include "js-string-table.hxx"
 #include "api/private.hxx"
+#include "api/frozen-map.hxx"
+#include "api/context.hxx"
 #include "api/function-template.hxx"
+#include "api/object-template.hxx"
 
 namespace {
     using callback_t = void (*)(void*);
@@ -12,10 +15,18 @@ namespace {
         auto isolate = context->GetIsolate();
         js::StringTable::initialize(isolate);
         dragiyski::node_ext::Private::initialize(isolate);
+        dragiyski::node_ext::Context::initialize(isolate);
+        dragiyski::node_ext::FrozenMap::initialize(isolate);
+        dragiyski::node_ext::FunctionTemplate::initialize(isolate);
+        dragiyski::node_ext::ObjectTemplate::initialize(isolate);
         return v8::JustVoid();
     }
 
     void uninitialize(v8::Isolate* isolate) {
+        dragiyski::node_ext::ObjectTemplate::uninitialize(isolate);
+        dragiyski::node_ext::FunctionTemplate::uninitialize(isolate);
+        dragiyski::node_ext::FrozenMap::uninitialize(isolate);
+        dragiyski::node_ext::Context::uninitialize(isolate);
         dragiyski::node_ext::Private::uninitialize(isolate);
         js::StringTable::uninitialize(isolate);
     }
@@ -44,7 +55,14 @@ NODE_MODULE_INIT() {
         auto class_template = Private::get_template(isolate);
         JS_EXPRESSION_RETURN(value, class_template->GetFunction(context));
         JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
-    }{
+    }
+    {
+        auto name = js::StringTable::Get(isolate, "Context");
+        auto class_template = Context::get_template(isolate);
+        JS_EXPRESSION_RETURN(value, class_template->GetFunction(context));
+        JS_EXPRESSION_IGNORE(exports->DefineOwnProperty(context, name, value, JS_PROPERTY_ATTRIBUTE_STATIC));
+    }
+    {
         auto name = js::StringTable::Get(isolate, "FunctionTemplate");
         auto class_template = FunctionTemplate::get_template(isolate);
         JS_EXPRESSION_RETURN(value, class_template->GetFunction(context));

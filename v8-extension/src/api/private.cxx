@@ -98,6 +98,10 @@ namespace dragiyski::node_ext {
             JS_THROW_ERROR(TypeError, isolate, "Class constructor ", "Private", " cannot be invoked without 'new'");
         }
 
+        if (!get_template(isolate)->HasInstance(info.This())) {
+            JS_THROW_ERROR(TypeError, isolate, "Illegal constructor");
+        }
+
         v8::Local<v8::String> name;
         if (!info[0]->IsNullOrUndefined()) {
             if V8_UNLIKELY(!info[0]->IsString()) {
@@ -118,15 +122,10 @@ namespace dragiyski::node_ext {
         v8::HandleScope scope(isolate);
         auto context = isolate->GetCurrentContext();
 
-        if (!info.IsConstructCall()) {
-            JS_THROW_ERROR(TypeError, isolate, "Class constructor ", "Private", " cannot be invoked without 'new'");
-        }
-
         auto implementation = get_implementation(isolate, info.This());
-        if (implementation == nullptr) {
-            v8::Local<v8::String> receiver_type;
+        if V8_UNLIKELY(implementation == nullptr) {
             JS_EXPRESSION_RETURN(receiver, type_of(context, info.This()));
-            JS_THROW_ERROR(TypeError, isolate, "Incompatible receiver ", receiver);
+            JS_THROW_ERROR(TypeError, isolate, "Private", ".", "prototype", ".", "get", " called on incompatible receiver ", receiver);
         }
 
         if V8_UNLIKELY(info.Length() < 1) {
@@ -154,7 +153,7 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         auto implementation = get_implementation(isolate, info.This());
-        if (implementation == nullptr) {
+        if V8_UNLIKELY(implementation == nullptr) {
             JS_EXPRESSION_RETURN(receiver, type_of(context, info.This()));
             JS_THROW_ERROR(TypeError, isolate, "Private", ".", "prototype", ".", "set", " called on incompatible receiver ", receiver);
         }
@@ -186,7 +185,7 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         auto implementation = get_implementation(isolate, info.This());
-        if (implementation == nullptr) {
+        if V8_UNLIKELY(implementation == nullptr) {
             JS_EXPRESSION_RETURN(receiver, type_of(context, info.This()));
             JS_THROW_ERROR(TypeError, isolate, "Private", ".", "prototype", ".", "has", " called on incompatible receiver ", receiver);
         }
@@ -211,7 +210,7 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         auto implementation = get_implementation(isolate, info.This());
-        if (implementation == nullptr) {
+        if V8_UNLIKELY(implementation == nullptr) {
             JS_EXPRESSION_RETURN(receiver, type_of(context, info.This()));
             JS_THROW_ERROR(TypeError, isolate, "Private", ".", "prototype", ".", "delete", " called on incompatible receiver ", receiver);
         }

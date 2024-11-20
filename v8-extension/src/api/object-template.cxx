@@ -5,6 +5,7 @@
 #include "object-template/indexed-property-handler-configuration.hxx"
 #include "template.hxx"
 #include "frozen-map.hxx"
+#include "context.hxx"
 
 #include "../error-message.hxx"
 #include "../js-string-table.hxx"
@@ -386,10 +387,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
         
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "name"),
@@ -398,6 +401,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 property,

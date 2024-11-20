@@ -17,6 +17,7 @@
                 "src/object.cxx",
                 "src//api/frozen-map.cxx",
                 "src/api/private.cxx",
+                "src/api/context.cxx",
                 "src/api/template.cxx",
                 "src/api/template/lazy-data-property.cxx",
                 "src/api/template/native-data-property.cxx",
@@ -33,8 +34,8 @@
         "configurations": {
             "Debug": {
                 "defines": [ "DEBUG", "_DEBUG" ],
-                "cflags_cc": [ "-g", "-O0", "--coverage" ],
-                "ldflags": ["--coverage", "-lgcov"],
+                "cflags_cc": [ "-g", "-O0", "--coverage", "-fprofile-arcs", "-ftest-coverage" ],
+                "ldflags": ["--coverage", "-lgcov", "-fprofile-arcs"],
                 "cflags_cc!": [ "-std=gnu++17" ]
             },
             "Release": {

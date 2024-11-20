@@ -151,7 +151,6 @@ namespace js {
     v8::MaybeLocal<v8::String> type_of(v8::Local<v8::Context> context, v8::Local<v8::Value> value);
     v8::MaybeLocal<v8::Value> object_or_function_call(v8::Local<v8::Context> context, v8::Local<v8::Value> callee, v8::Local<v8::Value> receiver, int argc, v8::Local<v8::Value> argv[]);
     v8::Local<v8::Object> object_from_property_descriptor(v8::Isolate *isolate, const v8::PropertyDescriptor &descriptor);
-    v8::Maybe<v8::PropertyDescriptor> property_descriptor_from_object(v8::Local<v8::Context> context, v8::Local<v8::Object> object);
 }
 
 #endif /* JS_OBJECT_HXX */

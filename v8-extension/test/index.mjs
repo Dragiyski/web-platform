@@ -14,12 +14,17 @@ const index = JSON.parse(fs.readFileSync(resolvePath(__dir__, 'index.json'), { e
 const builder = gyp();
 const commands = Object.create(null);
 for (const name of Object.keys(builder.commands)) {
-    commands[name] = promisify(builder.commands[name]);
+    commands[name] = builder.commands[name];
 }
 
 builder.parseArgv([...process.argv.slice(0, 2), 'configure', 'build', '--debug', '--loglevel=error']);
 for (const command of builder.todo) {
-    await commands[command.name].call(builder, command.args);
+    try {
+        await commands[command.name].call(builder, command.args);
+    } catch (e) {
+        console.error(e);
+        throw e;
+    }
 }
 
 const nativePath = resolvePath(__dir__, '../build/Debug/native.node');
@@ -43,10 +48,16 @@ for (let i = 0; i < index.length; ++i) {
         throw new TypeError('Test should be placed into test directory');
     }
     const result = await runTest(file, test);
-    if (result.code === 0) {
+    if (result.signal != null) {
+        process.stdout.write(`not ok - ${test.name}\n# exit signal ${result.signal}\n`);
+        const stderr = result.stderr.toString('utf-8').split('\n');
+        for (const line of stderr) {
+            process.stdout.write(`# ${line}\n`);
+        }
+    } else if (result.code === 0) {
         process.stdout.write(`ok - ${test.name}\n`);
     } else {
-        process.stdout.write(`not ok - ${test.name}\n`);
+        process.stdout.write(`not ok - ${test.name}\n# exit code ${result.code}`);
         const stderr = result.stderr.toString('utf-8').split('\n');
         for (const line of stderr) {
             process.stdout.write(`# ${line}\n`);
