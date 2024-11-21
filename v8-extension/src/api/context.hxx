@@ -19,6 +19,8 @@ namespace dragiyski::node_ext {
     protected:
         static void constructor(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void static_get_current(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void static_get_incumbent(const v8::FunctionCallbackInfo<v8::Value>& info);
+        static void static_get_entered(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void static_for(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void prototype_get_global(const v8::FunctionCallbackInfo<v8::Value>& info);
         static void prototype_compile_function(const v8::FunctionCallbackInfo<v8::Value>& info);

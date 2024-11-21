@@ -465,10 +465,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptIgnore, intercept_data, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
         
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "name"),
@@ -478,6 +480,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 property,
@@ -541,10 +544,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "name"),
@@ -553,6 +558,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 property,
@@ -624,10 +630,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "name"),
@@ -636,6 +644,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 property,
@@ -685,10 +694,12 @@ namespace dragiyski::node_ext {
         if (!JS_IS_CALLABLE(callback)) {
             return;
         }
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
 
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "descriptor"),
@@ -696,6 +707,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 js_descriptor,
@@ -768,10 +780,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptIgnore, intercept_data, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "name"),
@@ -781,6 +795,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 property,
@@ -844,10 +859,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "name"),
@@ -856,6 +873,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 property,
@@ -1008,10 +1026,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "index"),
@@ -1020,6 +1040,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 v8::Integer::NewFromUnsigned(isolate, index),
@@ -1083,10 +1104,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptIgnore, intercept_data, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "index"),
@@ -1096,6 +1119,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 v8::Integer::NewFromUnsigned(isolate, index),
@@ -1159,10 +1183,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "index"),
@@ -1171,6 +1197,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 v8::Integer::NewFromUnsigned(isolate, index),
@@ -1242,10 +1269,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "index"),
@@ -1254,6 +1283,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 v8::Integer::NewFromUnsigned(isolate, index),
@@ -1303,10 +1333,12 @@ namespace dragiyski::node_ext {
         if (!JS_IS_CALLABLE(callback)) {
             return;
         }
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
 
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "descriptor"),
@@ -1314,6 +1346,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 js_descriptor,
@@ -1386,10 +1419,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptIgnore, intercept_data, 0, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "index"),
@@ -1399,6 +1434,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 v8::Integer::NewFromUnsigned(isolate, index),
@@ -1462,10 +1498,12 @@ namespace dragiyski::node_ext {
             intercept_data = v8::Object::New(isolate, v8::Null(isolate), names, values, sizeof(names) / sizeof(v8::Local<v8::Name>));
         }
         JS_EXPRESSION_RETURN(intercept_function, v8::Function::New(context, InterceptReturn, intercept_data, 1, v8::ConstructorBehavior::kThrow, v8::SideEffectType::kHasSideEffect));
-        
+        JS_EXPRESSION_RETURN(current_context_interface, Context::get_context_holder(context, context));
+
         v8::Local<v8::Object> call_data;
         {
             v8::Local<v8::Name> names[] = {
+                StringTable::Get(isolate, "context"),
                 StringTable::Get(isolate, "this"),
                 StringTable::Get(isolate, "holder"),
                 StringTable::Get(isolate, "index"),
@@ -1474,6 +1512,7 @@ namespace dragiyski::node_ext {
                 StringTable::Get(isolate, "strict")
             };
             v8::Local<v8::Value> values[] = {
+                current_context_interface,
                 info.This(),
                 info.Holder(),
                 v8::Integer::NewFromUnsigned(isolate, index),

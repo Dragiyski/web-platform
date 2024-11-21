@@ -38,6 +38,32 @@ namespace dragiyski::node_ext {
             class_template->SetAccessorProperty(name, getter, {}, JS_PROPERTY_ATTRIBUTE_STATIC);
         }
         {
+            auto name = StringTable::Get(isolate, "incumbent");
+            auto getter = v8::FunctionTemplate::New(
+                isolate,
+                static_get_incumbent,
+                {},
+                {},
+                0,
+                v8::ConstructorBehavior::kThrow
+            );
+            getter->SetClassName(name);
+            class_template->SetAccessorProperty(name, getter, {}, JS_PROPERTY_ATTRIBUTE_STATIC);
+        }
+        {
+            auto name = StringTable::Get(isolate, "entered");
+            auto getter = v8::FunctionTemplate::New(
+                isolate,
+                static_get_entered,
+                {},
+                {},
+                0,
+                v8::ConstructorBehavior::kThrow
+            );
+            getter->SetClassName(name);
+            class_template->SetAccessorProperty(name, getter, {}, JS_PROPERTY_ATTRIBUTE_STATIC);
+        }
+        {
             auto name = StringTable::Get(isolate, "for");
             auto value = v8::FunctionTemplate::New(
                 isolate,
@@ -164,6 +190,36 @@ namespace dragiyski::node_ext {
         auto context = isolate->GetCurrentContext();
 
         JS_EXPRESSION_RETURN(self, get_context_holder(context, context));
+        info.GetReturnValue().Set(self);
+        return;
+    }
+
+    void Context::static_get_incumbent(const v8::FunctionCallbackInfo<v8::Value>& info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+        auto target_context = isolate->GetIncumbentContext();
+        if (target_context.IsEmpty()) {
+            return;
+        }
+
+        JS_EXPRESSION_RETURN(self, get_context_holder(context, target_context));
+        info.GetReturnValue().Set(self);
+        return;
+    }
+
+    void Context::static_get_entered(const v8::FunctionCallbackInfo<v8::Value>& info) {
+        using __function_return_type__ = void;
+        auto isolate = info.GetIsolate();
+        v8::HandleScope scope(isolate);
+        auto context = isolate->GetCurrentContext();
+        auto target_context = isolate->GetEnteredOrMicrotaskContext();
+        if (target_context.IsEmpty()) {
+            return;
+        }
+
+        JS_EXPRESSION_RETURN(self, get_context_holder(context, target_context));
         info.GetReturnValue().Set(self);
         return;
     }
